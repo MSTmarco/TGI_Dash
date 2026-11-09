@@ -809,3 +809,8 @@ function redraw() { charts.forEach(draw); render(); }
 window.addEventListener('resize', () => { clearTimeout(redraw.t); redraw.t = setTimeout(redraw, 120); });
 // #f=4.4&t=2024-06-20T12:00 abre esa falla en ese momento (capturas y presentacion)
 const hash = new URLSearchParams(location.hash.slice(1));
+sel.value = FALLAS.some((f) => f.id === hash.get('f')) ? hash.get('f') : FALLAS[0].id;
+load(sel.value, hash.get('t'));
+</script>
+</body>
+</html>
