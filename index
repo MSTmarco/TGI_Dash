@@ -1,0 +1,811 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Villavicencio Replay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #121A2B; --bg-deep: #0B111E; --panel: rgba(11,17,30,0.72); --edge: #2B3854;
+  --ink: #EEF2F8; --ink-2: #B9C3D6; --dim: #8D9AB2; --grid: #24304A;
+  --c1: #3987e5; --c2: #d95926; --c3: #199e70; --c4: #c98500;
+  --critical: #d03b3b; --warning: #fab219; --good: #0ca30c;
+  --read: #5E8FF0; --mech: #8193B3;
+  --line: #C9D3E6; --stop: rgba(141,154,178,0.08);
+  --display: 'Space Grotesk', system-ui, sans-serif; --sans: 'Inter', system-ui, sans-serif; --mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: radial-gradient(circle at 50% 30%, #1A2540 0%, var(--bg) 55%, var(--bg-deep) 100%) fixed, var(--bg);
+  color: var(--ink); font: 14px/1.45 var(--sans); min-height: 100vh;
+}
+.wrap { max-width: 1480px; margin: 0 auto; padding: 16px 24px 40px; }
+.panel { background: var(--panel); border: 1px solid var(--edge); border-radius: 12px; padding: 14px 16px; }
+.panel h2 { font: 600 13px var(--sans); letter-spacing: 0.06em; text-transform: uppercase; color: var(--dim); margin: 0; }
+.ph { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin-bottom: 8px; }
+.ph .sp { flex: 1; }
+
+/* barra de control: fija arriba, con el tiempo */
+.bar { position: sticky; top: 0; z-index: 10; background: rgba(11,17,30,0.94); backdrop-filter: blur(8px); border-bottom: 1px solid var(--edge); }
+.bar .in { max-width: 1480px; margin: 0 auto; padding: 10px 24px 10px; }
+.r1 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.brand { font: 700 15px var(--display); letter-spacing: 0.18em; color: var(--ink-2); }
+h1 { font: 600 20px/1.2 var(--display); margin: 0; flex: 1 1 360px; min-width: 0; }
+h1 small { display: block; font: 400 13px var(--sans); color: var(--dim); margin-top: 2px; }
+select { font: 500 14px var(--sans); color: var(--ink); background: #1B2540; border: 1px solid var(--edge); border-radius: 8px; padding: 7px 10px; cursor: pointer; min-width: 0; max-width: 100%; text-overflow: ellipsis; }
+select:hover { border-color: #3D4D70; }
+.state { display: inline-flex; align-items: center; gap: 8px; font: 600 12px var(--sans); letter-spacing: 0.05em; text-transform: uppercase; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--good); color: var(--ink); background: rgba(12,163,12,0.10); white-space: nowrap; }
+.state i { width: 8px; height: 8px; border-radius: 50%; background: var(--good); flex: none; }
+.state b { font: 500 12px var(--mono); letter-spacing: 0; text-transform: none; color: var(--ink-2); }
+.state.over { border-color: var(--warning); background: rgba(250,178,25,0.10); } .state.over i { background: var(--warning); }
+.state.alarm { border-color: var(--critical); background: rgba(208,59,59,0.16); } .state.alarm i { background: var(--critical); animation: blink 1.2s steps(2) infinite; }
+.state.off { border-color: var(--edge); background: transparent; } .state.off i { background: var(--dim); }
+@keyframes blink { 50% { opacity: 0.25; } }
+.clock { font: 500 20px var(--mono); min-width: 210px; }
+.r2 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-top: 8px; }
+button { font: 500 13px var(--sans); color: var(--ink); background: #1B2540; border: 1px solid var(--edge); border-radius: 8px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+button:hover { border-color: #3D4D70; }
+button.on { background: #24345A; border-color: #4A5F8F; }
+.track { position: relative; flex: 1 1 300px; min-width: 200px; }
+#scrub { width: 100%; accent-color: var(--read); display: block; margin: 0; }
+.marks { position: absolute; left: 8px; right: 8px; top: -9px; height: 12px; pointer-events: none; }
+.marks button { position: absolute; top: 0; width: 14px; height: 12px; margin-left: -7px; padding: 0; border: none; background: none; pointer-events: auto; cursor: pointer; }
+.marks button::after { content: ''; position: absolute; left: 6px; top: 2px; width: 2px; height: 8px; border-radius: 1px; background: #8D9AB2; }
+.marks button.stop::after { background: var(--critical); }
+.marks button.al::after { background: var(--warning); }
+.marks button:hover::after { width: 4px; left: 5px; }
+.rng { font: 400 12px var(--mono); color: var(--dim); white-space: nowrap; }
+
+/* diagrama del paquete */
+.plantwrap { overflow-x: auto; }
+#plant { display: block; width: 100%; min-width: 820px; height: auto; }
+#plant .b { fill: rgba(11,17,30,0.9); stroke: var(--edge); stroke-width: 1.3; }
+#plant .t { font: 600 14px var(--sans); fill: var(--ink); }
+#plant .s { font: 400 11px var(--mono); fill: var(--dim); }
+#plant .chip rect { fill: rgba(36,48,74,0.35); stroke: var(--grid); }
+#plant .chip text { font: 400 11px var(--mono); fill: var(--ink-2); }
+#plant .chip.lee rect { stroke: var(--read); fill: rgba(94,143,240,0.13); }
+#plant .chip.lee text { fill: var(--ink); }
+#plant .ring { fill: none; stroke-width: 2; display: none; }
+#plant .blk.dev .b, #plant .blk.watch .b, #plant .blk.warn .b { stroke: var(--warning); }
+#plant .blk.event .b { stroke: var(--critical); }
+#plant .blk.warn .ring { display: block; stroke: var(--warning); animation: blink 1.2s steps(2) infinite; }
+#plant .blk.event .ring { display: block; stroke: var(--critical); }
+#plant .blk.warn .chip.causa rect { stroke: var(--warning); fill: rgba(250,178,25,0.18); }
+#plant .blk.event .chip.causa rect { stroke: var(--critical); fill: rgba(208,59,59,0.22); }
+#plant .blk.warn .chip.causa text, #plant .blk.event .chip.causa text { fill: var(--ink); font-weight: 500; }
+#plant .flow { fill: none; stroke: var(--mech); stroke-width: 2.5; stroke-dasharray: 10 8; }
+#plant .flow.agua { stroke-width: 1.5; stroke-dasharray: 5 6; }
+#plant .mech { fill: none; stroke: var(--mech); stroke-width: 4; opacity: 0.45; }
+#plant .ah { fill: var(--mech); }
+#plant.run .flow { animation: flow 0.9s linear infinite; }
+@keyframes flow { to { stroke-dashoffset: -18; } }
+@media (prefers-reduced-motion: reduce) { #plant.run .flow, .state.alarm i, #plant .blk.warn .ring { animation: none; } }
+#plant .lb { font: 500 11px var(--sans); fill: var(--dim); letter-spacing: 0.08em; }
+#plant .ld { stroke: #3A4763; stroke-width: 1; stroke-dasharray: 2 3; }
+#plant .ld.on { stroke: var(--read); stroke-dasharray: none; }
+#plant .ins circle { fill: var(--bg-deep); stroke: #55627E; stroke-width: 1.2; }
+#plant .ins text { font: 500 9.5px var(--mono); fill: var(--dim); }
+#plant .ins .tg { font: 400 10px var(--mono); fill: #6F7C96; }
+#plant .ins .vl { font: 500 11.5px var(--mono); fill: var(--ink); }
+#plant .ins.on circle { stroke: var(--read); stroke-width: 2; }
+#plant .ins.on text, #plant .ins.on .tg { fill: var(--ink); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font: 500 12px var(--sans); color: var(--ink-2); }
+.legend i { display: inline-block; width: 14px; height: 10px; vertical-align: -1px; margin-right: 6px; border-radius: 2px; border: 1.5px solid; }
+.legend i.ln { height: 2px; border: none; }
+.story { margin-top: 8px; border-left: 3px solid var(--edge); padding: 4px 0 4px 12px; min-height: 48px; font-size: 15px; color: var(--ink); transition: border-color .2s; }
+.story.hot { border-left-color: var(--critical); }
+.story small { display: block; color: var(--dim); font: 500 12px var(--mono); margin-bottom: 2px; }
+/* guion del presentador: todos los pasos, el actual resaltado; un clic salta a ese momento */
+.guion { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; }
+.guion button { width: 100%; text-align: left; white-space: normal; display: flex; flex-direction: column; gap: 2px; padding: 6px 10px; background: rgba(27,37,64,0.5); }
+.guion button small { font: 500 11px var(--mono); color: var(--dim); display: flex; gap: 8px; align-items: center; }
+.guion button span { font: 500 13px var(--sans); }
+.guion li.fut button { opacity: 0.5; }
+.guion li.cur button { border-color: var(--read); background: #24345A; opacity: 1; }
+.salud { display: inline-flex; align-items: center; gap: 5px; font: 600 11px var(--sans); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-2); }
+.salud i { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.salud.watch i, .salud.dev i { background: var(--warning); } .salud.warn i, .salud.event i { background: var(--critical); } .salud.off i { background: var(--dim); }
+
+/* graficos */
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.grid > * { min-width: 0; }
+@media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+.chart { position: relative; }
+.chart + .chart { margin-top: 6px; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart .ttl { display: flex; align-items: baseline; gap: 10px; font: 600 13px var(--sans); color: var(--ink); margin: 6px 0 0; }
+.chart .ttl code { font: 500 12px var(--mono); color: var(--ink-2); background: rgba(11,17,30,0.6); border: 1px solid var(--grid); border-radius: 5px; padding: 1px 6px; }
+.chart .ttl .lgd { margin-left: auto; font-weight: 500; }
+.axis text, .lab { font: 400 11px var(--sans); fill: var(--dim); }
+.trk { font: 600 11px var(--sans); fill: var(--ink-2); letter-spacing: 0.04em; text-transform: uppercase; }
+.ev text { font: 500 11px var(--sans); fill: var(--ink-2); }
+.tip { position: absolute; pointer-events: none; background: #0B111E; border: 1px solid var(--edge); border-radius: 8px; padding: 8px 10px; font: 12px var(--sans); color: var(--ink); white-space: nowrap; display: none; z-index: 5; box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.tip .h { color: var(--dim); font: 500 11px var(--mono); margin-bottom: 4px; }
+.tip .r { display: flex; justify-content: space-between; gap: 14px; }
+.tip .r span:last-child { font-family: var(--mono); }
+.tip .sw { display: inline-block; width: 10px; height: 2px; margin-right: 6px; vertical-align: middle; }
+
+/* features */
+.firmas-panel { margin-top: 16px; }
+.firmas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; margin-top: 8px; }
+.firma { border: 1px solid var(--edge); border-radius: 10px; padding: 12px 14px; min-width: 0; }
+.firma .fh { display: flex; align-items: center; gap: 8px; }
+.firma .fh b { font: 600 14px var(--sans); flex: 1; min-width: 0; }
+.firma .fh i { display: inline-block; width: 14px; height: 2px; border-radius: 2px; flex: none; }
+.firma .now { font: 500 13px var(--mono); color: var(--ink-2); }
+.fx { margin-top: 6px; }
+.fx code { display: block; font: 500 13px/1.5 var(--mono); color: var(--ink); background: rgba(11,17,30,0.6); border: 1px solid var(--grid); border-radius: 6px; padding: 5px 8px; overflow-x: auto; white-space: nowrap; }
+.firma p { margin: 8px 0 0; font-size: 13px; color: var(--ink-2); }
+@media (max-width: 760px) { .bar { position: static; } }
+@media (max-width: 600px) { .wrap, .bar .in { padding-left: 16px; padding-right: 16px; } h1 { font-size: 18px; flex-basis: 100%; } .firmas { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="in">
+    <div class="r1">
+      <div class="brand">VÖRNTEC</div>
+      <h1 id="title">—</h1>
+      <select id="falla" aria-label="Elegir falla"></select>
+      <span class="state" id="state"><i></i><span id="state-t">Normal</span><b id="state-s">score —</b></span>
+    </div>
+    <div class="r2">
+      <div class="clock" id="clock">—</div>
+      <button id="play" aria-label="Reproducir">▶ Reproducir</button>
+      <button id="speed">×1</button>
+      <div class="track">
+        <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Línea de tiempo">
+        <div class="marks" id="marks"></div>
+      </div>
+      <span class="rng" id="rng">—</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <section class="panel">
+    <div class="ph"><h2 id="unit">UC-1 · Ariel JGT/4 + Waukesha L5794GSI</h2></div>
+    <div class="plantwrap"><svg id="plant" viewBox="0 0 1260 540" role="img" aria-label="Diagrama del paquete compresor: gas, compresor, enfriador, motor, bastidor y panel"></svg></div>
+    <div class="story" id="story" aria-live="polite"></div>
+    <ol class="guion" id="guion" aria-label="Pasos de la demo"></ol>
+  </section>
+
+  <div class="grid">
+    <section class="panel">
+      <div class="ph"><h2>SCADA</h2></div>
+      <div id="raw"></div>
+    </section>
+    <section class="panel">
+      <div class="ph"><h2>Agente</h2></div>
+      <div id="model"></div>
+    </section>
+  </div>
+
+  <section class="panel firmas-panel">
+    <h2>Lo que mira el agente · features de ingeniería</h2>
+    <div class="firmas" id="firmas"></div>
+  </section>
+</div>
+
+<script>
+const REAL = {"t0":"2025-07-08 00:00:00","n":921,"run":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"carga":[91.7,91.2,91.0,90.9,91.0,89.8,88.4,86.5,85.7,85.7,85.8,84.7,82.9,83.5,86.6,88.3,87.9,87.7,88.3,89.0,88.8,89.1,90.4,91.3,91.4,91.2,91.0,90.7,90.6,90.0,87.7,84.5,84.9,85.1,85.3,84.3,84.0,85.2,87.6,88.5,87.6,90.9,90.9,90.4,90.7,91.4,91.0,91.1,91.6,91.2,90.7,91.4,91.9,91.0,89.2,88.3,89.0,89.5,89.7,88.6,87.1,88.5,90.4,91.2,91.9,90.9,64.3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,58.4,90.6,85.9,91.1,87.2,87.6,85.5,83.0,85.2,83.2,81.9,80.6,82.6,88.2,90.9,87.6,87.0,87.4,88.2,87.5,85.1,91.1,90.4,89.8,91.3,91.4,91.7,92.1,90.9,89.3,88.3,86.6,86.1,85.6,82.7,80.9,81.3,87.7,91.6,91.7,91.2,90.3,89.7,90.2,91.3,91.5,91.9,68.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,40.3,89.6,82.5,84.0,84.0,82.5,86.8,86.9,86.9,84.2,89.0,85.8,85.1,88.1,82.2,89.5,89.3,89.0,83.2,86.7,87.9,87.9,86.7,80.8,86.8,86.9,86.9,86.9,86.8,88.4,86.8,76.7,77.3,76.1,74.9,65.7,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1.7,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.3,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,27.4,80.0,80.1,80.0,80.1,80.2,79.9,79.6,79.4,79.5,79.7,79.7,79.8,79.9,79.7,79.8,79.7,79.6,79.5,79.7,80.3,80.3,80.4,80.6,80.5,80.1,79.8,79.7,79.7,79.4,79.3,79.2,79.0,79.1,79.0,78.9,78.9,79.3,79.2,79.2,79.4,79.3,79.6,79.8,79.8,80.2,80.5,80.6,80.3,80.2,79.8,79.5,79.6,79.5,79.5,79.5,79.4,79.2,79.2,79.5,79.3,79.2,79.2,79.1,79.1,79.2,43.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],"pres":[56.15,56.01,56.0,55.99,55.99,55.99,55.97,55.92,55.84,55.82,55.79,55.81,55.95,55.99,56.03,56.04,56.04,56.07,56.13,56.19,56.11,56.02,56.0,55.99,55.99,55.97,55.97,55.97,55.97,55.95,55.91,55.85,55.83,55.84,55.82,55.81,55.79,55.78,55.77,55.78,55.82,55.81,55.81,55.82,55.84,55.86,55.87,55.9,55.9,55.89,55.96,55.95,55.96,55.94,55.96,55.93,55.85,55.8,55.7,55.54,55.52,55.49,55.5,55.46,55.49,55.75,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,59.37,56.59,56.12,55.99,55.89,55.88,55.89,55.92,55.87,55.84,55.92,55.91,55.85,55.78,55.78,55.83,55.83,55.88,55.94,55.96,55.98,55.99,55.99,56.0,55.99,56.0,55.99,55.99,55.99,55.97,55.92,55.84,55.78,55.68,55.56,55.49,55.5,55.49,55.49,55.6,55.76,55.82,55.85,55.85,55.85,55.89,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,60.39,56.92,55.85,55.75,55.68,55.69,55.71,55.65,55.62,55.51,55.46,55.35,55.34,55.27,55.42,55.51,55.68,55.79,55.79,55.81,55.83,55.85,55.88,55.89,55.87,55.86,55.85,55.83,55.85,55.83,55.62,55.66,55.52,55.48,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,60.99,56.97,55.84,55.57,55.5,55.48,55.5,55.5,55.5,55.5,55.49,55.49,55.49,55.63,55.7,55.53,55.58,55.57,55.5,55.46,55.42,55.29,55.19,55.16,55.19,55.25,55.38,55.46,55.5,55.52,55.56,55.58,55.58,55.55,55.53,55.55,55.53,55.6,55.75,55.74,55.71,55.54,55.49,55.46,55.41,55.22,55.16,55.13,55.18,55.2,55.26,55.4,55.48,55.5,55.49,55.5,55.51,55.6,55.62,55.56,55.54,55.77,55.8,55.8,55.79,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"taceite":[164.2,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.3,165.9,165.7,165.0,165.0,164.6,164.3,164.3,164.1,163.9,163.5,163.9,164.6,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.0,165.2,165.6,166.0,166.3,167.0,166.9,166.2,165.8,165.0,165.0,165.0,165.0,165.0,165.0,165.0,164.9,164.1,164.1,164.1,164.0,164.0,164.3,165.0,165.1,166.0,166.9,167.0,167.0,167.0,167.0,167.0,165.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,147.1,161.9,163.5,164.8,165.0,164.9,164.8,164.2,164.6,164.8,164.1,164.6,165.0,165.8,165.7,165.0,165.0,164.8,164.9,164.7,164.1,164.0,164.2,164.2,164.2,164.3,164.4,164.8,164.9,165.0,165.0,165.0,165.2,165.8,166.6,167.0,167.0,167.3,167.0,166.9,166.0,165.2,165.0,165.0,165.0,165.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,138.1,156.9,162.7,163.0,163.0,163.0,163.0,163.0,163.1,164.1,164.7,165.0,165.0,165.0,164.9,164.1,163.1,163.0,163.0,162.7,162.5,162.1,162.1,162.2,162.2,162.3,162.6,162.6,162.4,162.4,162.3,162.9,163.0,163.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,135.9,157.4,163.0,163.5,164.0,164.0,164.0,164.0,164.0,164.0,164.2,164.4,164.0,163.1,163.0,163.6,163.1,163.2,164.0,164.7,165.0,165.0,165.8,166.1,165.5,165.0,165.0,164.8,164.1,164.0,163.8,163.4,163.5,163.7,163.7,163.8,163.9,163.3,163.0,163.0,163.0,163.6,164.2,164.9,165.0,165.3,166.4,166.6,165.9,165.1,165.0,165.0,164.8,164.2,164.3,164.1,164.0,163.3,163.0,163.2,163.5,163.0,162.9,162.9,163.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"f1":[0.12,0.15,0.19,0.18,0.18,0.16,0.11,0.04,-0.08,-0.19,-0.23,-0.28,-0.3,-0.25,-0.15,-0.1,-0.11,-0.12,-0.12,-0.15,-0.18,-0.16,-0.1,-0.04,0.0,0.03,0.07,0.09,0.07,0.03,-0.04,-0.14,-0.26,-0.37,-0.48,-0.5,-0.48,-0.36,-0.16,0.04,0.18,0.23,0.23,0.21,0.12,0.06,0.06,0.09,0.16,0.2,0.19,0.13,0.09,0.0,-0.08,-0.12,-0.09,-0.08,-0.04,0.01,0.05,0.05,0.03,0.01,-0.02,-0.04,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.06,0.02,-0.03,-0.05,-0.06,0.02,0.08,0.09,0.15,0.14,0.21,0.22,0.17,0.17,0.19,0.21,0.15,0.12,0.18,0.28,0.38,0.47,0.52,0.49,0.41,0.29,0.16,0.03,-0.05,-0.03,-0.03,0.06,0.14,0.16,0.19,0.18,0.21,0.19,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.03,0.04,0.03,-0.01,-0.06,0.0,-0.03,-0.09,-0.04,0.04,0.15,0.14,0.16,0.19,0.18,0.15,0.14,0.16,0.21,0.22,0.19,-0.01,-0.1,-0.31,-0.54,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,-0.69,-0.67,-0.64,-0.65,-0.67,-0.64,-0.67,-0.75,-0.83,-0.82,-0.74,-0.7,-0.72,-0.68,-0.65,-0.71,-0.85,-0.88,-0.77,-0.74,-0.71,-0.63,-0.58,-0.62,-0.69,-0.72,-0.72,-0.72,-0.71,-0.64,-0.59,-0.54,-0.57,-0.57,-0.47,-0.48,-0.6,-0.6,-0.53,-0.56,-0.75,-0.88,-0.77,-0.73,-0.75,-0.72,-0.59,-0.52,-0.58,-0.69,-0.78,-0.84,-0.77,-0.66,-0.55,-0.41,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"f2":[-0.78,-0.68,-0.42,-0.06,0.36,0.77,0.99,1.0,0.92,0.78,0.69,0.59,0.42,0.29,0.18,-0.06,-0.3,-0.49,-0.55,-0.67,-0.69,-0.48,-0.23,-0.0,0.2,0.53,0.79,0.95,1.02,1.04,1.07,1.05,0.89,0.64,0.44,0.4,0.34,0.33,0.49,0.91,1.19,1.23,1.23,1.23,1.22,1.05,1.01,1.1,1.22,1.26,1.19,1.04,0.82,0.63,0.5,0.4,0.38,0.33,0.38,0.56,0.7,0.78,0.87,1.02,1.16,0.99,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.98,0.8,0.54,0.14,-0.25,-0.26,-0.04,0.24,0.56,0.88,1.26,1.38,1.1,0.87,0.81,0.79,0.7,0.7,0.85,1.05,1.19,1.22,1.19,1.06,0.82,0.63,0.5,0.5,0.57,0.72,1.07,1.37,1.5,1.47,1.43,1.35,1.25,1.08,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.42,0.5,0.49,0.29,0.19,0.39,0.42,0.31,0.34,0.55,0.74,0.75,0.72,0.84,0.83,0.75,0.67,0.66,0.79,0.76,0.81,0.86,0.89,0.91,0.85,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,3.0,3.08,3.14,3.13,2.93,2.68,2.53,2.12,1.64,1.29,1.09,1.01,0.83,1.01,1.4,1.84,2.31,2.75,3.18,3.34,3.32,3.25,3.13,2.96,2.84,2.83,2.88,2.87,2.72,2.42,2.02,1.61,1.17,0.77,0.67,0.68,0.75,1.08,1.56,2.04,2.35,2.79,3.27,3.47,3.43,3.41,3.46,3.41,3.2,2.94,2.86,2.81,2.62,2.43,2.36,2.25,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ml":[0.003,0.003,0.002,0.003,0.003,0.004,0.005,0.006,0.008,0.012,0.017,0.026,0.041,0.058,0.074,0.08,0.073,0.057,0.04,0.027,0.018,0.013,0.009,0.007,0.007,0.006,0.007,0.009,0.012,0.018,0.027,0.043,0.066,0.093,0.121,0.15,0.173,0.181,0.178,0.178,0.181,0.181,0.176,0.169,0.167,0.166,0.167,0.172,0.181,0.197,0.213,0.214,0.201,0.185,0.168,0.149,0.128,0.111,0.097,0.087,0.078,0.072,0.069,0.071,0.079,0.088,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.028,0.022,0.021,0.023,0.026,0.033,0.04,0.04,0.04,0.04,0.045,0.054,0.068,0.083,0.097,0.107,0.107,0.097,0.084,0.073,0.067,0.062,0.06,0.061,0.064,0.072,0.083,0.095,0.109,0.126,0.145,0.169,0.192,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.033,0.034,0.034,0.033,0.035,0.037,0.039,0.04,0.042,0.044,0.048,0.052,0.053,0.055,0.057,0.061,0.067,0.074,0.086,0.106,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.999,0.999,0.999,0.999,0.998,0.997,0.995,0.992,0.985,0.976,0.967,0.963,0.966,0.972,0.98,0.987,0.992,0.995,0.997,0.998,0.999,0.999,1.0,1.0,0.999,0.999,0.999,0.998,0.995,0.99,0.981,0.965,0.942,0.915,0.891,0.881,0.898,0.929,0.959,0.979,0.99,0.996,0.998,0.999,0.999,1.0,1.0,1.0,1.0,1.0,0.999,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ml_thr":0.5};
+const DEMO = {"4.1":{"ml":[0.14,0.103,0.117,0.12,0.138,0.098,0.138,0.141,0.106,0.07,0.041,0.035,0.086,0.121,0.108,0.096,0.16,0.184,0.154,0.147,0.133,0.139,0.165,0.153,0.162,0.176,0.194,0.167,0.156,0.213,0.197,0.189,0.195,0.169,0.153,0.202,0.231,0.184,0.18,0.135,0.09,0.097,0.15,0.146,0.189,0.15,0.153,0.153,0.154,0.181,0.192,0.168,0.123,0.109,0.113,0.101,0.061,0.03,0.062,0.082,0.073,0.096,0.117,0.114,0.105,0.145,0.17,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.059,0.034,0.03,0.03,0.03,0.03,0.03,0.043,0.059,0.073,0.073,0.077,0.099,0.094,0.135,0.125,0.158,0.124,0.131,0.149,0.183,0.213,0.169,0.142,0.184,0.163,0.111,0.145,0.158,0.116,0.099,0.139,0.122,0.105,0.094,0.136,0.084,0.098,0.102,0.116,0.135,0.13,0.143,0.149,0.184,0.105,0.101,0.104,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.097,0.091,0.044,0.108,0.135,0.112,0.138,0.16,0.15,0.159,0.15,0.143,0.09,0.07,0.102,0.112,0.182,0.214,0.217,0.146,0.125,0.133,0.192,0.198,0.144,0.169,0.196,0.226,0.257,0.213,0.201,0.214,0.243,0.241,0.269,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.22,0.24,0.282,0.292,0.307,0.296,0.302,0.287,0.331,0.339,0.371,0.399,0.399,0.419,0.446,0.475,0.425,0.464,0.496,0.504,0.505,0.513,0.534,0.502,0.544,0.527,0.579,0.589,0.612,0.618,0.611,0.59,0.586,0.613,0.613,0.621,0.627,0.621,0.623,0.662,0.697,0.752,0.733,0.715,0.723,0.702,0.718,0.757,0.769,0.766,0.738,0.748,0.74,0.76,0.775,0.745,0.736,0.737,0.761,0.793,0.784,0.79,0.814,0.799,0.8,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null],"ml_thr":0.5},"4.4":{"t0":"2024-05-24 00:00:00","n":757,"run":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1],"carga":[90.7,91.6,91.8,90.8,90.9,87.8,88.3,86.8,89.8,88.9,85.4,90.4,88.5,93.6,89.0,88.4,81.3,88.5,87.5,89.1,87.4,89.3,89.9,89.0,87.6,83.1,87.3,87.6,86.4,89.9,83.5,81.7,91.5,83.4,83.8,86.4,84.9,82.6,81.8,85.6,85.8,81.8,89.3,88.7,84.7,88.3,86.4,90.2,87.8,83.0,88.6,89.1,88.0,88.1,90.8,89.6,84.7,85.4,83.9,93.9,91.2,92.2,91.3,92.8,92.5,85.3,84.9,89.6,85.7,87.4,91.6,89.1,90.7,87.9,85.4,92.4,87.9,88.4,86.1,83.4,84.2,82.7,83.9,87.6,92.6,91.0,92.3,92.1,94.8,88.0,83.2,88.7,84.4,88.4,88.3,89.5,93.5,91.6,91.4,87.2,90.5,90.7,84.5,84.4,84.7,88.1,88.9,92.7,93.3,88.4,91.9,89.9,98.6,97.5,98.6,90.4,93.5,87.2,89.8,89.8,69.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,16.0,90.7,91.1,92.4,92.3,91.8,90.4,89.0,89.8,91.9,91.9,92.4,93.2,92.5,92.7,93.0,93.4,93.0,92.2,92.0,90.4,89.6,89.2,89.9,90.8,91.3,89.9,91.5,91.6,90.8,90.1,90.3,91.7,92.2,92.5,93.1,93.8,92.2,91.6,93.1,92.4,92.7,91.4,91.9,90.4,90.7,90.7,90.8,90.2,90.7,90.2,91.3,90.1,90.7,92.5,93.9,92.9,93.1,94.1,94.5,93.3,93.2,87.2,81.0,81.1,90.0,91.7,92.0,91.9,92.1,91.4,91.3,91.2,91.2,89.5,87.6,86.2,86.7,91.3,92.1,92.8,96.2,97.1,95.9,92.3,89.3,90.1,89.7,89.6,90.8,91.3,91.8,91.4,91.4,91.9,91.8,91.7,89.8,87.8,86.7,87.9,89.9,89.5,90.3,91.6,91.3,90.1,91.1,93.8,94.8,94.7,95.6,93.7,93.1,92.8,91.9,92.1,91.8,91.9,92.1,92.0,89.3,86.7,86.5,88.2,89.5,90.2,90.9,93.7,93.9,94.0,95.4,95.8,95.9,94.7,92.0,91.5,90.8,90.4,91.4,92.2,92.1,92.3,92.7,91.9,89.9,85.9,86.7,86.5,87.5,90.0,90.2,90.7,89.0,88.8,89.5,92.0,95.8,97.6,95.6,96.2,94.5,92.2,91.9,92.3,92.3,91.9,91.9,91.8,89.7,86.6,87.2,90.2,92.0,90.7,91.8,89.1,88.7,88.3,88.1,89.6,92.3,93.4,94.4,95.0,97.3,92.9,90.9,90.8,91.1,91.0,91.2,91.4,91.7,89.4,86.6,86.2,85.8,88.6,88.2,87.9,85.6,83.4,84.1,86.7,88.7,89.9,89.3,89.5,89.5,89.5,90.9,91.2,72.9,90.6,89.6,85.6,88.2,64.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,5.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,47.2,86.3,85.3,87.0,91.9,92.0,87.2,87.7,87.7,86.7,85.1,84.4,85.1,89.2,86.9,88.7,90.1,86.0,78.0,19.6,87.1,84.7,85.5,83.6,87.7,90.4,50.8,75.4,87.4,91.8,94.3,88.7,89.0,89.1,87.1,87.0,88.6,90.0,78.7,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,66.0,88.8,86.1,86.7,86.2,86.9,87.6,86.7,88.3,89.2,92.1,89.9,90.5,90.0,91.4,89.8,93.2,87.0,92.3,90.6,92.5,97.4,94.1,89.3,86.7,87.8,87.9,85.1,85.5,84.7,86.6,87.1,88.0,91.1,91.4,92.1,87.4,83.8,58.3,85.5,85.0,93.8,92.6,82.1,93.1,93.9,92.8,88.0,91.3,89.7,90.2,90.1,88.7,89.7,87.3,88.6,86.8,88.9,82.4,85.1,82.4,79.0,81.0,84.3,89.3,89.8,94.1,93.2,93.5,92.2,91.0,87.4,91.5,89.6,91.1,89.8,89.3,87.7,86.1,49.3,0.0,51.3,83.5,82.7,80.0],"vib_lado_acople":[0.056,0.056,0.054,0.052,0.051,0.047,0.041,0.046,0.048,0.051,0.055,0.058,0.052,0.054,0.051,0.052,0.053,0.05,0.05,0.05,0.051,0.051,0.045,0.047,0.049,0.046,0.047,0.047,0.045,0.041,0.047,0.053,0.061,0.06,0.06,0.06,0.06,0.067,0.064,0.058,0.047,0.056,0.059,0.052,0.049,0.05,0.051,0.05,0.05,0.05,0.05,0.05,0.049,0.05,0.047,0.051,0.045,0.043,0.054,0.065,0.062,0.064,0.063,0.061,0.059,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.049,0.05,0.045,0.045,0.046,0.041,0.04,0.04,0.041,0.057,0.067,0.064,0.061,0.069,0.066,0.069,0.056,0.051,0.051,0.051,0.051,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.048,0.04,0.044,0.054,0.054,0.06,0.064,0.069,0.062,0.065,0.064,0.069,0.068,0.067,0.068,0.067,0.056,0.05,0.05,0.042,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.048,0.053,0.043,0.042,0.04,0.04,0.04,0.041,0.043,0.05,0.05,0.05,0.049,0.049,0.05,0.047,0.05,0.046,0.04,0.045,0.045,0.042,0.049,0.049,0.05,0.049,0.051,0.052,0.05,0.05,0.05,0.05,0.05,0.05,0.051,0.053,0.056,0.053,0.056,0.054,0.052,0.049,0.05,0.049,0.05,0.046,0.047,0.041,0.044,0.05,0.049,0.042,0.047,0.05,0.047,0.049,0.05,0.05,0.05,0.051,0.05,0.047,0.043,0.04,0.044,0.05,0.05,0.05,0.05,0.049,0.046,0.044,0.042,0.042,0.047,0.05,0.053,0.06,0.06,0.065,0.07,0.07,0.07,0.059,0.051,0.05,0.05,0.05,0.047,0.05,0.05,0.044,0.047,0.05,0.05,0.05,0.05,0.045,0.044,0.056,0.06,0.062,0.07,0.077,0.078,0.072,0.081,0.072,0.07,0.065,0.067,0.062,0.06,0.056,0.049,0.049,0.05,0.05,0.05,0.05,0.05,0.05,0.055,0.064,0.061,0.06,0.063,0.064,0.06,0.06,0.06,0.069,0.078,0.066,0.06,0.06,0.059,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.049,0.043,0.05,0.05,0.056,0.062,0.061,0.067,0.068,0.061,0.06,0.06,0.066,0.072,0.066,0.062,0.059,0.055,0.05,0.05,0.05,0.05,0.05,0.05,0.05,0.049,0.055,0.06,0.06,0.061,0.07,0.07,0.069,0.07,0.07,0.07,0.07,0.07,0.07,0.07,0.075,0.058,0.049,0.05,0.049,0.045,0.04,0.04,0.045,0.049,0.057,0.048,0.05,0.06,0.06,0.06,0.06,0.06,0.06,0.06,0.06,0.058,0.05,0.054,0.051,0.042,0.048,0.05,0.041,0.05,0.05,0.05,0.05,0.05,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.04,0.041,0.065,0.06,0.06,0.051,0.05,0.049,0.048,0.05,0.05,0.056,0.05,0.047,0.051,0.05,0.046,0.047,null,0.051,0.05,0.05,0.059,0.059,0.06,0.039,0.052,0.068,0.07,0.063,0.053,0.051,0.051,0.057,0.053,0.05,0.05,0.048,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.038,0.046,0.044,0.049,0.045,0.046,0.054,0.056,0.06,0.06,0.068,0.071,0.071,0.069,0.061,0.06,0.06,0.061,0.067,0.069,0.07,0.069,0.074,0.065,0.053,0.054,0.053,0.049,0.05,0.052,0.057,0.063,0.06,0.065,0.076,0.071,0.074,0.064,0.05,0.06,0.06,0.06,0.061,0.061,0.07,0.078,0.068,0.053,0.05,0.05,0.05,0.05,0.051,0.05,0.05,0.049,0.05,0.063,0.06,0.06,0.062,0.068,0.06,0.069,0.074,0.073,0.071,0.071,0.07,0.068,0.067,0.057,0.05,0.05,0.05,0.05,0.05,0.049,0.05,null,null,0.044,0.063,0.061,0.06],"vib_lado_libre":[0.717,0.723,0.704,0.713,0.729,0.735,0.724,0.63,0.563,0.744,0.658,0.661,0.694,0.703,0.705,0.714,0.701,0.637,0.602,0.616,0.617,0.65,0.704,0.642,0.651,0.632,0.636,0.638,0.662,0.622,0.595,0.566,0.857,0.844,0.815,0.674,0.674,0.707,0.742,0.69,0.602,0.728,0.765,0.753,0.553,0.645,0.65,0.643,0.659,0.668,0.671,0.663,0.652,0.654,0.688,0.675,0.576,0.564,0.688,0.787,0.728,0.736,0.812,0.73,0.733,0.546,0.589,0.586,0.599,0.593,0.615,0.64,0.647,0.642,0.651,0.667,0.641,0.613,0.576,0.529,0.538,0.547,0.647,0.755,0.727,0.739,0.887,0.901,0.8,0.743,0.614,0.558,0.542,0.601,0.611,0.635,0.634,0.653,0.64,0.622,0.625,0.598,0.556,0.604,0.809,0.936,0.853,0.681,1.005,1.005,0.972,1.014,1.025,0.881,0.708,0.653,0.658,0.809,0.626,0.619,0.504,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.765,0.774,0.836,0.853,0.835,0.791,0.745,0.735,0.804,0.803,0.817,0.846,0.831,0.832,0.83,0.826,0.847,0.859,0.858,0.811,0.777,0.771,0.762,0.75,0.752,0.77,0.85,0.856,0.843,0.81,0.784,0.791,0.798,0.79,0.79,0.765,0.757,0.735,0.751,0.757,0.754,0.752,0.767,0.776,0.771,0.767,0.776,0.759,0.747,0.752,0.842,0.822,0.835,0.874,0.895,0.867,0.869,0.872,0.867,0.821,0.788,0.749,0.674,0.671,0.72,0.766,0.796,0.782,0.784,0.768,0.773,0.759,0.756,0.713,0.683,0.582,0.707,0.895,0.888,0.761,0.721,0.693,0.7,0.765,0.688,0.705,0.694,0.702,0.727,0.78,0.804,0.773,0.803,0.78,0.779,0.776,0.71,0.613,0.587,0.78,0.915,0.841,0.624,0.649,0.669,0.672,0.669,0.66,0.641,0.653,0.668,0.732,0.859,0.679,0.726,0.817,0.762,0.764,0.773,0.769,0.691,0.622,0.687,0.758,0.846,0.875,0.701,0.946,1.118,1.107,1.066,0.734,0.758,0.764,0.885,0.887,0.788,0.745,0.765,0.767,0.777,0.78,0.792,0.774,0.715,0.65,0.666,0.644,0.75,0.781,0.687,0.652,0.654,0.646,0.644,0.639,0.637,0.669,0.71,0.701,0.873,0.718,0.775,0.788,0.799,0.794,0.786,0.784,0.756,0.702,0.745,0.779,0.687,0.692,0.656,0.664,0.659,0.654,0.651,0.651,0.651,0.671,0.658,0.669,0.664,0.725,0.726,0.681,0.695,0.7,0.703,0.699,0.686,0.739,0.649,0.605,0.631,0.829,0.804,0.817,0.818,0.79,0.785,0.854,0.848,0.816,0.693,0.682,0.662,0.673,0.687,0.704,0.567,0.731,0.752,0.76,0.758,0.753,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.736,0.716,0.708,0.843,0.779,0.715,0.738,0.738,0.738,0.723,0.704,0.627,0.743,0.767,0.81,0.816,0.804,0.807,null,0.711,0.696,0.685,0.63,0.823,0.838,0.492,0.683,0.673,0.674,0.678,0.622,0.665,0.714,0.699,0.705,0.725,0.746,0.743,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.528,0.74,0.757,0.774,0.77,0.719,0.683,0.653,0.809,0.918,0.672,0.666,0.84,0.967,0.966,0.965,0.966,0.957,0.946,0.9,0.901,0.913,0.816,0.792,0.753,0.773,0.774,0.775,0.764,0.684,0.719,0.771,0.775,0.718,0.649,0.639,0.644,0.986,0.67,1.061,1.06,1.081,1.081,1.075,0.833,0.675,0.715,0.702,0.735,0.737,0.73,0.731,0.756,0.733,0.727,0.669,0.627,0.924,0.953,0.952,0.954,0.917,0.711,0.66,0.709,0.728,0.738,0.735,0.721,0.719,0.719,0.703,0.739,0.75,0.742,0.746,0.729,0.706,0.693,null,null,0.649,0.918,0.884,0.855],"gas_salida":[105.8,104.5,103.0,103.0,102.7,100.2,100.8,105.0,107.4,111.8,112.3,114.4,114.7,115.4,115.3,114.3,110.6,110.7,109.6,109.0,107.9,108.9,105.5,105.7,105.8,104.2,105.6,105.8,103.8,104.0,104.5,103.7,107.0,107.3,106.3,104.8,104.5,104.9,104.0,106.6,105.2,105.6,107.1,105.9,105.1,104.5,103.9,104.6,103.9,102.9,102.5,102.9,102.9,103.0,103.6,105.0,106.4,108.5,110.8,114.4,115.3,115.4,114.9,115.4,114.8,111.8,109.6,108.5,108.5,107.3,106.1,104.6,103.9,104.5,105.8,104.4,103.5,104.4,104.2,105.3,106.1,108.2,109.1,113.4,114.8,115.3,116.3,115.2,114.6,111.4,108.6,107.7,107.9,106.8,106.3,105.9,106.2,105.4,105.3,104.7,105.5,105.5,105.5,107.3,109.6,109.6,110.8,113.8,114.8,112.4,108.5,112.2,113.5,111.3,109.9,108.6,108.4,107.5,106.5,105.2,102.7,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,101.7,101.9,103.7,104.2,105.0,105.8,107.1,109.3,109.1,108.3,108.6,107.7,105.5,104.7,104.5,103.7,102.8,101.2,100.6,99.2,98.5,98.6,99.0,99.6,100.0,100.1,102.9,104.0,105.0,107.2,109.6,111.4,112.1,112.0,112.1,111.1,108.2,105.8,106.5,105.3,104.5,104.6,103.8,100.1,99.7,99.8,99.5,98.8,98.6,99.1,102.1,104.4,109.2,111.4,112.4,112.7,113.2,113.8,113.7,111.2,110.4,105.1,102.5,101.2,104.4,105.8,105.7,105.1,105.5,104.2,103.4,104.6,104.8,104.3,107.3,108.4,109.4,111.4,112.9,113.4,115.9,116.2,115.5,111.7,108.7,107.5,105.6,104.7,104.4,103.4,103.0,101.9,101.8,102.3,102.4,103.8,103.5,103.6,104.6,105.8,106.9,109.2,110.9,111.8,113.8,111.9,112.1,112.2,111.6,110.2,110.2,109.7,109.1,107.1,105.2,104.5,103.6,103.5,103.8,103.5,102.6,103.6,106.0,108.1,108.9,110.0,110.3,112.1,113.0,113.5,114.0,114.0,112.4,110.7,108.8,107.9,107.7,105.9,105.4,105.1,103.8,103.4,103.5,103.1,103.4,103.6,106.3,106.2,107.3,109.3,110.7,111.1,112.3,112.6,112.9,113.0,112.8,111.7,110.4,110.2,108.7,107.1,106.7,104.8,103.5,102.7,102.8,103.2,102.7,103.3,106.2,107.8,109.3,110.4,111.3,111.4,111.3,110.6,110.8,110.7,110.9,109.8,109.8,109.1,109.2,108.7,107.2,105.5,104.6,104.1,103.8,103.9,105.4,104.2,106.4,107.3,108.3,111.2,111.8,111.9,111.3,111.4,111.3,110.4,109.8,109.0,107.8,108.9,107.9,106.0,106.2,105.1,101.4,103.8,103.4,104.4,103.7,103.9,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,110.1,110.0,112.5,115.3,115.2,111.4,111.0,109.9,107.8,105.9,106.2,107.2,106.1,105.9,103.4,103.2,103.4,102.9,null,101.0,103.7,106.4,107.5,110.3,113.1,106.5,103.5,112.3,112.6,111.7,110.9,109.4,108.0,107.7,106.2,105.6,104.8,104.6,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,98.8,103.7,103.5,103.1,102.5,103.5,104.7,106.7,109.0,111.5,112.6,112.9,112.7,113.0,113.6,112.5,112.5,112.1,110.0,109.3,108.6,108.7,109.1,107.8,106.7,105.5,104.8,105.0,103.8,104.7,104.8,105.2,106.0,105.2,106.2,106.4,107.4,107.9,103.6,108.4,109.1,109.1,108.9,108.3,107.8,108.8,109.1,106.6,106.4,104.9,105.7,104.9,104.1,104.0,103.7,105.7,106.9,109.5,110.2,110.8,112.1,111.5,111.4,111.8,113.3,111.8,110.7,110.1,110.2,109.3,109.1,107.8,106.2,105.2,105.1,105.1,105.0,104.4,104.2,null,null,99.1,103.5,104.1,104.3],"esc_izq":[1191.0,1190.0,1190.0,1191.0,1191.0,1189.0,1198.0,1197.0,1195.0,1200.0,1200.0,1201.0,1203.0,1204.0,1204.0,1200.0,1187.0,1198.0,1196.0,1195.0,1195.0,1197.0,1191.0,1195.0,1195.0,1195.0,1196.0,1195.0,1196.0,1195.0,1193.0,1189.0,1225.0,1228.0,1227.0,1228.0,1222.0,1224.0,1228.0,1222.0,1187.0,1216.0,1235.0,1199.0,1193.0,1195.0,1192.0,1192.0,1193.0,1193.0,1193.0,1193.0,1194.0,1193.0,1196.0,1196.0,1194.0,1192.0,1202.0,1240.0,1253.0,1246.0,1240.0,1243.0,1222.0,1197.0,1196.0,1196.0,1197.0,1197.0,1198.0,1199.0,1199.0,1199.0,1200.0,1199.0,1197.0,1196.0,1193.0,1191.0,1193.0,1191.0,1191.0,1235.0,1244.0,1242.0,1238.0,1237.0,1245.0,1209.0,1196.0,1194.0,1195.0,1196.0,1198.0,1199.0,1200.0,1200.0,1200.0,1198.0,1198.0,1197.0,1193.0,1190.0,1200.0,1212.0,1232.0,1256.0,1275.0,1271.0,1274.0,1282.0,1283.0,1280.0,1269.0,1247.0,1247.0,1212.0,1199.0,1198.0,1062.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1194.0,1192.0,1199.0,1199.0,1199.0,1198.0,1196.0,1197.0,1199.0,1199.0,1200.0,1201.0,1200.0,1200.0,1200.0,1201.0,1200.0,1199.0,1199.0,1191.0,1188.0,1187.0,1188.0,1190.0,1190.0,1191.0,1200.0,1200.0,1199.0,1198.0,1199.0,1201.0,1202.0,1202.0,1199.0,1195.0,1192.0,1191.0,1193.0,1192.0,1192.0,1191.0,1191.0,1189.0,1189.0,1189.0,1189.0,1189.0,1189.0,1189.0,1198.0,1197.0,1198.0,1201.0,1203.0,1202.0,1202.0,1204.0,1203.0,1195.0,1194.0,1185.0,1176.0,1176.0,1194.0,1199.0,1199.0,1199.0,1199.0,1198.0,1198.0,1197.0,1197.0,1195.0,1193.0,1190.0,1198.0,1229.0,1231.0,1246.0,1274.0,1274.0,1255.0,1220.0,1195.0,1197.0,1196.0,1195.0,1197.0,1197.0,1197.0,1197.0,1197.0,1198.0,1198.0,1198.0,1195.0,1192.0,1191.0,1204.0,1225.0,1227.0,1245.0,1257.0,1259.0,1256.0,1258.0,1261.0,1262.0,1261.0,1259.0,1240.0,1223.0,1209.0,1200.0,1199.0,1198.0,1197.0,1198.0,1198.0,1195.0,1189.0,1194.0,1204.0,1218.0,1227.0,1244.0,1273.0,1280.0,1282.0,1283.0,1267.0,1253.0,1237.0,1219.0,1218.0,1205.0,1196.0,1197.0,1198.0,1198.0,1198.0,1198.0,1198.0,1195.0,1189.0,1189.0,1189.0,1201.0,1222.0,1236.0,1254.0,1251.0,1250.0,1251.0,1257.0,1265.0,1263.0,1245.0,1246.0,1227.0,1204.0,1198.0,1198.0,1198.0,1197.0,1197.0,1197.0,1195.0,1191.0,1198.0,1222.0,1237.0,1235.0,1255.0,1250.0,1249.0,1248.0,1248.0,1251.0,1256.0,1259.0,1260.0,1262.0,1266.0,1214.0,1195.0,1193.0,1193.0,1192.0,1193.0,1193.0,1194.0,1195.0,1191.0,1190.0,1188.0,1212.0,1212.0,1212.0,1207.0,1203.0,1204.0,1210.0,1214.0,1213.0,1201.0,1196.0,1194.0,1191.0,1193.0,1193.0,1095.0,1197.0,1197.0,1198.0,1197.0,1197.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1193.0,1191.0,1196.0,1228.0,1222.0,1195.0,1195.0,1194.0,1192.0,1189.0,1188.0,1190.0,1195.0,1199.0,1199.0,1198.0,1199.0,1198.0,null,1191.0,1191.0,1187.0,1185.0,1203.0,1213.0,893.0,1173.0,1243.0,1259.0,1242.0,1194.0,1195.0,1195.0,1193.0,1192.0,1195.0,1197.0,1198.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1026.0,1197.0,1198.0,1199.0,1198.0,1197.0,1195.0,1193.0,1207.0,1229.0,1252.0,1253.0,1262.0,1264.0,1267.0,1267.0,1272.0,1275.0,1275.0,1275.0,1275.0,1279.0,1277.0,1239.0,1200.0,1198.0,1197.0,1198.0,1196.0,1193.0,1197.0,1207.0,1231.0,1239.0,1257.0,1255.0,1251.0,1264.0,1045.0,1259.0,1269.0,1274.0,1278.0,1281.0,1270.0,1266.0,1241.0,1198.0,1196.0,1197.0,1197.0,1197.0,1197.0,1197.0,1195.0,1193.0,1190.0,1214.0,1215.0,1215.0,1213.0,1205.0,1213.0,1241.0,1262.0,1266.0,1268.0,1269.0,1242.0,1240.0,1244.0,1204.0,1197.0,1197.0,1196.0,1196.0,1196.0,1195.0,1193.0,null,null,1052.0,1205.0,1210.0,1214.0],"esc_der":[1191.0,1190.0,1191.0,1192.0,1192.0,1189.0,1199.0,1199.0,1197.0,1202.0,1201.0,1202.0,1204.0,1205.0,1205.0,1201.0,1186.0,1199.0,1196.0,1196.0,1196.0,1199.0,1192.0,1195.0,1195.0,1195.0,1197.0,1197.0,1198.0,1196.0,1194.0,1191.0,1231.0,1234.0,1234.0,1235.0,1227.0,1230.0,1235.0,1227.0,1187.0,1221.0,1241.0,1202.0,1194.0,1196.0,1192.0,1193.0,1194.0,1193.0,1192.0,1193.0,1194.0,1194.0,1197.0,1197.0,1194.0,1193.0,1205.0,1247.0,1261.0,1253.0,1247.0,1250.0,1227.0,1198.0,1196.0,1196.0,1197.0,1197.0,1199.0,1199.0,1199.0,1200.0,1201.0,1200.0,1197.0,1196.0,1193.0,1191.0,1193.0,1191.0,1193.0,1241.0,1251.0,1249.0,1244.0,1243.0,1252.0,1212.0,1196.0,1195.0,1196.0,1197.0,1199.0,1200.0,1201.0,1200.0,1200.0,1199.0,1199.0,1197.0,1193.0,1191.0,1204.0,1217.0,1238.0,1264.0,1285.0,1280.0,1284.0,1291.0,1292.0,1290.0,1278.0,1255.0,1256.0,1217.0,1201.0,1198.0,1059.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1195.0,1194.0,1201.0,1201.0,1200.0,1198.0,1196.0,1197.0,1200.0,1200.0,1201.0,1202.0,1201.0,1201.0,1201.0,1202.0,1201.0,1200.0,1200.0,1191.0,1188.0,1188.0,1189.0,1190.0,1191.0,1192.0,1201.0,1201.0,1200.0,1199.0,1200.0,1202.0,1203.0,1203.0,1200.0,1195.0,1193.0,1191.0,1194.0,1193.0,1194.0,1191.0,1192.0,1189.0,1190.0,1190.0,1190.0,1189.0,1190.0,1189.0,1199.0,1198.0,1199.0,1202.0,1204.0,1203.0,1203.0,1205.0,1204.0,1195.0,1195.0,1185.0,1175.0,1175.0,1195.0,1200.0,1200.0,1200.0,1200.0,1199.0,1199.0,1199.0,1199.0,1196.0,1194.0,1192.0,1202.0,1236.0,1238.0,1254.0,1285.0,1283.0,1262.0,1224.0,1196.0,1197.0,1196.0,1196.0,1197.0,1198.0,1199.0,1198.0,1198.0,1199.0,1199.0,1199.0,1196.0,1193.0,1193.0,1209.0,1232.0,1233.0,1253.0,1267.0,1268.0,1266.0,1268.0,1270.0,1271.0,1270.0,1267.0,1248.0,1229.0,1214.0,1202.0,1201.0,1199.0,1199.0,1200.0,1200.0,1196.0,1192.0,1198.0,1209.0,1224.0,1234.0,1252.0,1283.0,1291.0,1292.0,1293.0,1275.0,1261.0,1244.0,1225.0,1224.0,1209.0,1197.0,1198.0,1199.0,1199.0,1199.0,1200.0,1199.0,1196.0,1190.0,1192.0,1192.0,1206.0,1228.0,1243.0,1262.0,1259.0,1258.0,1260.0,1265.0,1273.0,1271.0,1252.0,1253.0,1233.0,1208.0,1199.0,1199.0,1199.0,1199.0,1198.0,1198.0,1196.0,1191.0,1203.0,1229.0,1244.0,1243.0,1264.0,1258.0,1257.0,1256.0,1256.0,1259.0,1265.0,1267.0,1268.0,1271.0,1274.0,1219.0,1196.0,1193.0,1193.0,1193.0,1193.0,1194.0,1195.0,1196.0,1192.0,1192.0,1191.0,1218.0,1218.0,1217.0,1212.0,1207.0,1209.0,1215.0,1219.0,1218.0,1205.0,1201.0,1196.0,1192.0,1194.0,1195.0,1094.0,1197.0,1198.0,1199.0,1199.0,1198.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1194.0,1192.0,1200.0,1235.0,1227.0,1195.0,1195.0,1195.0,1193.0,1189.0,1188.0,1191.0,1196.0,1200.0,1200.0,1200.0,1200.0,1200.0,null,1194.0,1195.0,1190.0,1188.0,1209.0,1219.0,895.0,1176.0,1251.0,1268.0,1249.0,1196.0,1196.0,1196.0,1194.0,1194.0,1196.0,1198.0,1199.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1023.0,1197.0,1197.0,1198.0,1197.0,1197.0,1197.0,1195.0,1210.0,1234.0,1260.0,1261.0,1271.0,1272.0,1275.0,1276.0,1280.0,1284.0,1284.0,1284.0,1284.0,1288.0,1286.0,1244.0,1199.0,1197.0,1197.0,1197.0,1195.0,1196.0,1200.0,1211.0,1237.0,1246.0,1265.0,1263.0,1260.0,1273.0,1046.0,1267.0,1277.0,1283.0,1287.0,1289.0,1278.0,1274.0,1246.0,1199.0,1196.0,1196.0,1197.0,1197.0,1197.0,1196.0,1195.0,1193.0,1192.0,1219.0,1220.0,1220.0,1218.0,1209.0,1218.0,1249.0,1270.0,1274.0,1277.0,1278.0,1249.0,1246.0,1251.0,1206.0,1197.0,1196.0,1196.0,1196.0,1196.0,1194.0,1193.0,null,null,1052.0,1209.0,1213.0,1218.0],"ml":[0.14,0.183,0.18,0.184,0.211,0.225,0.23,0.205,0.165,0.172,0.152,0.175,0.176,0.148,0.155,0.174,0.174,0.146,0.153,0.162,0.183,0.198,0.162,0.144,0.162,0.107,0.136,0.111,0.103,0.152,0.148,0.138,0.147,0.143,0.124,0.133,0.199,0.217,0.219,0.215,0.228,0.233,0.193,0.201,0.193,0.237,0.216,0.242,0.192,0.194,0.164,0.134,0.159,0.126,0.124,0.106,0.123,0.134,0.07,0.101,0.089,0.157,0.181,0.203,0.123,0.178,0.175,0.13,0.142,0.18,0.128,0.162,0.15,0.132,0.122,0.101,0.113,0.125,0.159,0.198,0.18,0.206,0.163,0.179,0.142,0.125,0.146,0.124,0.141,0.099,0.085,0.109,0.158,0.122,0.171,0.174,0.236,0.213,0.187,0.19,0.151,0.154,0.15,0.187,0.19,0.147,0.108,0.085,0.033,0.03,0.072,0.058,0.108,0.091,0.087,0.045,0.097,0.092,0.148,0.127,0.167,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.154,0.112,0.135,0.109,0.205,0.203,0.185,0.203,0.237,0.267,0.257,0.271,0.272,0.255,0.192,0.184,0.1,0.08,0.129,0.136,0.135,0.109,0.088,0.075,0.043,0.03,0.042,0.106,0.092,0.122,0.087,0.105,0.068,0.106,0.112,0.078,0.103,0.158,0.155,0.151,0.149,0.151,0.186,0.218,0.142,0.178,0.166,0.211,0.214,0.231,0.202,0.152,0.157,0.183,0.198,0.212,0.208,0.219,0.182,0.171,0.119,0.12,0.113,0.118,0.152,0.152,0.062,0.114,0.122,0.148,0.122,0.149,0.193,0.136,0.173,0.14,0.116,0.119,0.184,0.123,0.106,0.112,0.135,0.132,0.145,0.113,0.14,0.171,0.132,0.109,0.125,0.137,0.153,0.114,0.105,0.095,0.142,0.139,0.123,0.098,0.104,0.145,0.097,0.106,0.126,0.188,0.201,0.232,0.219,0.165,0.118,0.099,0.109,0.104,0.095,0.156,0.081,0.057,0.142,0.15,0.128,0.095,0.126,0.149,0.172,0.127,0.133,0.127,0.141,0.092,0.117,0.166,0.12,0.149,0.198,0.216,0.203,0.197,0.172,0.174,0.137,0.139,0.113,0.073,0.128,0.074,0.138,0.072,0.11,0.12,0.074,0.068,0.048,0.033,0.075,0.049,0.03,0.058,0.082,0.091,0.09,0.118,0.133,0.13,0.114,0.15,0.193,0.199,0.281,0.267,0.254,0.283,0.27,0.259,0.23,0.231,0.166,0.14,0.107,0.046,0.093,0.09,0.071,0.093,0.062,0.101,0.15,0.105,0.146,0.151,0.184,0.184,0.152,0.101,0.073,0.068,0.111,0.135,0.145,0.189,0.126,0.092,0.064,0.078,0.037,0.034,0.092,0.13,0.179,0.156,0.122,0.133,0.106,0.109,0.11,0.131,0.176,0.213,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.143,0.202,0.251,0.318,0.365,0.392,0.457,0.492,0.519,0.554,0.569,0.596,0.576,0.574,0.584,0.569,0.601,0.628,null,0.644,0.642,0.625,0.62,0.622,0.634,0.638,0.65,0.633,0.629,0.643,0.67,0.647,0.664,0.686,0.691,0.699,0.698,0.705,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.755,0.754,0.78,0.796,0.778,0.794,0.782,0.799,0.809,0.816,0.812,0.807,0.81,0.769,0.795,0.8,0.809,0.798,0.811,0.809,0.844,0.822,0.851,0.839,0.851,0.851,0.839,0.81,0.836,0.815,0.82,0.856,0.889,0.898,0.873,0.879,0.888,0.88,0.913,0.169,0.178,0.172,0.13,0.107,0.086,0.133,0.139,0.155,0.169,0.18,0.227,0.242,0.239,0.232,0.265,0.196,0.231,0.205,0.213,0.197,0.193,0.181,0.069,0.049,0.04,0.03,0.03,0.03,0.03,0.035,0.088,0.065,0.072,0.118,0.113,0.107,0.049,0.104,0.103,null,null,0.098,0.102,0.088,0.118],"ml_thr":0.5},"5.2":{"t0":"2023-10-08 00:00:00","n":781,"run":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,1,1,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],"carga":[88.6,89.9,89.9,89.7,89.6,89.5,89.0,83.1,72.4,83.1,91.9,91.7,93.2,94.3,94.0,89.2,87.2,86.7,87.1,87.8,87.5,88.0,88.8,89.5,89.6,88.1,89.8,88.4,90.1,88.0,87.6,81.1,79.4,81.5,81.5,82.0,84.0,85.7,84.7,85.0,88.3,87.7,87.3,85.6,84.7,89.5,90.5,90.5,89.9,89.3,89.2,89.2,89.3,87.3,85.7,82.1,88.6,91.0,91.4,92.0,94.3,94.5,94.7,97.0,89.1,85.2,84.8,84.8,85.9,86.7,87.9,89.4,90.1,90.0,89.9,90.0,89.8,89.5,86.0,82.7,84.5,88.6,92.6,94.7,96.4,97.0,97.9,87.1,86.4,88.0,87.3,85.7,86.1,86.9,87.4,88.8,89.8,89.6,89.8,89.7,89.8,88.8,86.7,81.8,86.7,88.2,92.6,94.5,96.0,97.7,97.8,89.8,88.3,87.4,85.8,84.5,83.1,83.7,86.8,89.6,89.1,89.6,89.5,89.0,88.2,87.0,87.0,91.2,88.9,43.5,69.8,72.0,75.8,78.6,83.3,90.9,89.9,83.3,83.9,84.8,85.0,86.7,89.2,88.8,88.3,88.2,87.7,86.8,85.4,83.9,82.4,80.0,75.9,72.1,71.0,77.0,80.0,86.0,93.7,96.9,93.8,86.8,86.5,86.4,86.4,84.2,84.3,87.0,88.6,88.7,88.8,88.7,88.1,88.3,88.4,88.0,88.2,88.9,90.4,92.5,93.4,94.4,95.5,95.9,95.8,87.6,87.8,87.9,88.9,89.5,90.1,89.8,89.7,89.3,89.7,89.3,88.7,88.4,88.1,88.0,85.3,83.5,86.1,87.5,87.4,87.6,89.7,94.1,95.2,86.4,86.4,86.5,87.8,88.6,88.9,89.7,90.2,90.3,90.4,90.3,90.1,89.9,86.5,83.0,84.8,85.0,97.6,97.6,43.8,34.1,47.0,58.7,86.4,94.6,98.4,95.8,91.9,87.2,86.8,85.6,86.8,90.1,91.5,91.5,88.2,89.8,88.2,89.1,77.5,87.3,88.5,84.4,88.6,87.1,76.5,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,15.6,100.1,94.6,89.0,89.5,89.0,88.6,88.8,90.6,91.3,91.3,91.5,91.3,91.2,90.9,88.5,86.3,87.8,91.7,93.0,93.7,94.5,98.9,96.8,97.4,96.9,96.5,95.0,90.4,90.1,89.7,89.2,89.5,90.1,90.8,90.9,90.8,90.5,90.6,90.5,90.2,87.1,86.3,87.1,90.0,94.0,95.0,94.8,94.8,95.2,93.0,90.6,91.1,91.3,90.9,90.6,90.3,90.6,90.8,90.7,90.5,90.1,90.0,88.8,88.8,88.7,87.8,86.2,84.7,83.8,92.6,96.7,97.0,96.2,89.0,89.4,89.5,89.5,89.5,89.6,88.8,89.6,90.3,90.5,90.6,90.6,90.0,87.7,86.4,85.1,88.9,96.2,96.8,97.3,97.4,97.6,93.5,84.2,81.8,81.5,81.2,81.0,80.5,80.5,80.1,79.9,79.9,79.7,79.8,79.7,79.8,79.6,79.6,79.6,79.6,83.7,93.9,95.3,94.3,94.0,94.4,94.9,1.3,71.0,94.5,14.2,23.6,83.9,86.1,89.6,87.3,90.7,89.3,91.1,89.4,89.0,87.7,88.3,87.9,84.1,86.4,84.0,83.9,87.3,80.9,85.9,86.3,85.7,85.8,83.9,84.2,86.0,87.3,85.1,91.4,91.3,91.1,89.8,91.6,90.0,88.4,86.6,85.5,88.6,87.8,93.1,97.7,97.9,95.8,94.1,92.9,89.5,89.2,89.4,89.4,90.2,90.9,91.5,92.6,92.5,92.3,91.7,91.3,90.4,89.4,89.2,90.8,97.5,98.2,98.1,96.5,94.1,95.9,90.9,86.4,87.0,88.6,89.3,89.0,89.0,90.0,91.0,92.1,92.4,91.9,91.3,91.2,91.1,90.5,90.5,89.2,90.1,56.0,0.0,0.0,0.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,38.6,92.9,89.2,92.0,91.9,91.1,89.8,86.5,87.5,89.2,39.7,0.0,21.4,52.3,63.2,64.4,15.1,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,23.8,0.0,70.1,91.5,91.5,91.1,86.0,85.9,86.2,87.3,90.0,94.8,95.3,93.8,90.4,86.8,86.3,86.6,86.5,86.1,86.2,87.1,91.4,92.2,92.7,92.4,92.0,91.6,91.3,91.3,87.8,85.0,85.7,87.6,87.8,87.3,87.4,88.2,88.7,88.8,88.2,91.7,90.9,87.4,86.9,89.3,91.4,92.1,92.1,92.2,92.0,92.1,92.4,91.6,89.0,88.4,87.2,86.1,86.9,88.1,89.5,90.0,87.8,87.6,88.8,90.5,89.7,88.8,89.8,89.6,91.1,91.8,92.1,91.9,91.5,91.2,89.1,86.8,87.3,87.8,93.4,92.6,92.1,93.4,94.3,94.6,91.6,89.0,86.1,17.2,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,23.6,46.9,58.9],"pres_aceite":[42.8,42.7,42.8,42.7,42.7,42.8,42.7,43.4,42.0,50.5,52.6,51.2,51.5,52.0,51.6,48.1,46.9,45.7,42.9,42.8,42.9,42.8,42.8,42.8,42.8,42.1,42.8,42.7,42.8,42.8,42.8,42.6,42.6,42.9,42.9,44.4,46.2,48.1,45.5,42.6,42.4,42.6,42.8,42.7,42.8,42.7,42.8,42.7,42.7,42.8,42.8,42.8,42.8,42.9,42.9,43.7,50.9,52.2,53.0,53.7,55.0,55.1,54.9,54.3,47.7,43.3,42.8,42.8,42.6,42.8,42.9,42.8,42.7,42.8,42.7,42.7,42.8,42.8,42.8,44.9,47.3,50.1,52.6,53.3,54.1,54.0,53.8,44.8,42.7,42.7,42.8,42.9,42.8,42.9,42.7,42.8,42.8,42.8,42.8,42.8,42.7,42.8,42.9,45.8,49.1,50.6,53.8,53.2,53.6,53.8,53.1,46.5,42.5,42.6,42.9,42.9,42.7,42.7,42.9,42.8,42.8,42.7,42.7,42.8,42.8,43.1,46.5,54.5,54.1,null,53.7,55.9,57.0,57.3,57.0,56.5,50.2,42.6,42.8,42.8,42.7,42.7,42.8,42.8,42.8,42.8,42.8,42.8,42.7,42.6,43.5,48.2,52.2,53.7,53.6,57.0,56.9,56.7,56.0,55.4,52.1,42.9,42.7,42.7,42.7,42.6,42.5,42.5,42.6,42.6,42.5,42.5,42.6,43.2,44.6,46.3,48.1,51.0,53.3,53.8,53.7,53.5,53.7,54.1,53.5,43.2,42.7,42.7,42.7,42.6,42.6,42.6,42.6,42.5,42.6,42.6,42.5,42.6,42.6,46.3,49.9,51.7,56.1,56.0,56.3,56.1,56.0,56.3,53.2,44.5,44.0,43.9,43.9,43.9,43.9,43.8,43.8,43.8,43.8,43.8,43.9,43.9,43.4,43.0,45.0,45.1,54.3,54.5,null,null,null,44.9,56.8,57.7,57.0,54.2,50.1,45.2,44.0,43.9,43.9,43.1,43.9,43.8,43.9,43.1,44.3,47.0,47.3,48.9,49.7,50.4,52.1,52.1,46.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,56.1,50.4,45.1,44.1,44.1,44.1,44.0,43.9,43.9,43.9,43.9,43.9,43.9,43.8,43.9,44.2,47.1,49.8,50.7,51.1,51.8,53.3,52.1,52.3,52.3,52.2,51.0,45.2,45.1,45.1,45.2,44.3,43.4,43.4,43.4,43.4,43.3,43.3,43.4,43.4,43.7,46.9,46.8,49.1,49.5,51.4,52.1,51.5,51.4,49.0,45.6,45.7,45.7,45.8,45.8,44.7,43.5,43.5,43.4,43.4,43.5,43.5,43.5,43.4,43.5,43.5,43.4,43.3,43.9,52.9,55.0,55.0,54.6,47.7,45.8,45.8,45.9,45.9,45.5,43.0,42.9,42.9,42.9,42.9,42.9,43.0,43.0,42.9,43.3,47.8,52.8,52.6,52.4,52.1,51.9,48.9,45.1,44.9,43.6,43.7,43.3,43.2,42.8,42.9,42.9,42.8,42.8,42.8,42.8,43.0,42.7,42.8,42.8,43.0,45.2,53.0,52.8,52.5,52.4,52.2,52.4,null,44.8,53.0,null,null,46.6,42.6,42.9,42.9,42.2,42.9,42.9,42.9,42.2,43.0,44.9,46.4,45.6,46.1,46.8,46.7,46.7,43.5,42.8,42.8,43.0,42.4,43.1,43.2,42.4,42.9,42.9,42.9,42.9,42.9,42.9,42.9,42.3,43.7,45.2,45.5,46.8,46.8,50.0,52.3,52.5,52.1,50.2,49.0,45.1,43.1,43.0,43.0,42.9,43.0,43.0,42.8,42.9,42.9,42.9,43.0,43.0,43.0,43.0,47.8,53.1,53.0,52.4,51.2,50.1,51.6,47.5,43.3,43.0,43.0,42.9,43.0,43.0,43.0,42.9,42.7,42.9,42.9,42.9,42.9,43.0,43.0,45.0,47.1,47.1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,42.5,42.3,42.9,42.8,42.7,42.8,43.0,45.5,49.3,null,null,null,44.4,41.8,41.9,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,35.7,43.0,43.0,43.0,42.9,42.7,43.8,46.1,48.8,52.3,52.3,49.5,47.5,43.5,43.1,43.1,43.1,43.0,43.1,43.1,42.9,42.9,42.9,42.9,42.9,43.0,43.0,43.0,43.1,43.2,43.5,44.7,44.6,44.6,45.6,45.7,45.6,45.2,43.2,43.1,43.2,43.2,43.1,43.1,43.1,43.1,43.1,43.0,43.1,43.1,43.0,43.1,43.2,43.2,43.2,43.3,43.9,44.5,47.2,46.6,43.3,43.0,43.0,42.9,43.0,43.0,43.1,43.1,43.0,43.0,43.0,43.0,43.0,43.0,43.0,44.3,47.0,47.2,51.6,50.4,50.1,51.2,51.4,51.3,46.4,43.1,43.1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,40.5],"temp_aceite":[175.7,175.8,175.7,175.9,175.9,175.8,175.9,176.9,176.3,177.4,176.6,176.7,177.3,177.8,177.7,176.2,176.0,175.9,175.6,175.6,175.6,175.7,175.7,175.7,175.7,175.8,175.7,176.0,175.8,175.7,175.8,176.9,176.9,175.8,175.8,176.1,176.3,176.3,176.0,175.9,176.1,175.7,175.6,176.4,176.1,176.1,175.9,176.0,175.8,175.8,175.8,175.9,175.9,175.7,175.6,178.1,176.2,176.2,176.3,176.2,176.5,176.6,176.8,177.1,176.0,175.6,176.1,176.3,176.9,176.0,175.9,175.8,175.9,176.0,175.9,176.0,175.8,175.8,176.2,177.4,176.1,176.2,176.5,177.0,177.7,178.0,178.2,176.0,175.8,175.6,175.6,175.6,175.7,175.8,176.0,176.0,175.8,175.9,175.9,176.0,176.0,175.9,175.8,177.3,176.2,176.4,176.9,177.7,178.2,178.2,178.1,176.3,175.9,175.8,175.6,175.7,176.8,176.4,175.9,176.0,175.9,175.9,176.0,175.9,175.9,175.9,176.0,176.4,176.6,null,176.0,175.9,176.0,176.1,176.3,176.4,176.0,177.1,176.3,176.5,176.5,176.4,175.9,176.2,176.1,176.0,176.0,176.0,176.5,176.6,177.4,176.1,176.0,176.0,176.1,176.4,176.4,176.4,176.7,177.2,176.6,175.6,175.6,175.9,175.9,176.3,176.8,176.4,176.0,176.0,176.0,176.0,176.2,176.3,176.1,176.0,176.2,176.4,176.5,177.0,177.1,177.4,176.9,176.3,176.1,175.8,175.9,175.9,176.0,176.0,176.0,176.0,176.1,176.1,176.0,176.1,176.5,176.2,176.2,177.0,176.2,176.3,176.8,177.4,177.2,177.6,177.6,177.0,176.4,175.8,175.8,175.9,175.8,175.9,176.0,176.1,176.0,176.0,176.1,176.0,176.0,176.0,176.2,177.0,176.4,176.0,177.3,177.9,null,null,null,173.7,177.4,177.8,177.4,176.2,176.0,175.9,175.8,175.9,175.9,176.0,175.9,175.9,175.9,172.4,176.1,176.3,176.4,176.4,176.4,169.2,165.8,176.3,176.6,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,177.7,176.8,175.7,175.6,175.6,175.7,175.8,175.9,175.8,175.9,175.9,175.9,176.0,176.1,176.1,175.9,176.1,176.2,176.3,176.3,176.9,178.3,177.9,177.6,176.9,176.3,175.8,175.7,175.7,175.7,175.7,175.8,175.8,175.8,175.8,175.8,176.0,176.0,175.9,176.0,176.7,176.0,176.1,176.1,176.5,176.8,176.9,177.4,177.6,176.5,175.8,175.7,175.9,175.8,175.8,175.7,175.7,175.7,175.8,175.8,175.8,175.8,175.8,176.0,175.9,175.7,176.4,176.7,176.9,176.6,176.2,176.0,176.0,175.9,176.0,176.0,175.9,175.9,176.0,176.2,176.1,176.1,176.0,176.0,176.0,176.0,176.2,176.5,176.0,176.1,176.4,176.5,177.0,177.2,177.7,176.5,175.7,175.9,175.5,175.6,175.6,175.6,176.9,176.6,176.5,176.9,176.9,176.9,176.9,176.5,177.4,177.1,176.9,176.9,176.7,176.2,176.4,176.8,177.0,177.2,176.6,null,173.8,176.0,null,null,176.0,175.7,175.9,172.2,175.9,175.8,172.3,175.9,176.0,176.1,176.0,176.1,176.1,176.0,172.5,176.2,176.1,172.3,172.2,172.1,175.6,172.0,175.6,175.7,175.7,176.0,176.0,176.0,175.9,175.9,172.3,176.0,175.8,175.7,175.9,176.0,176.2,176.1,176.6,177.0,176.7,176.4,176.1,175.9,175.7,175.7,175.7,175.8,175.8,175.8,175.8,176.0,175.9,175.7,175.8,175.8,175.7,175.8,175.8,176.0,176.6,177.4,177.4,177.1,176.4,176.4,175.8,175.6,175.7,175.8,175.8,175.8,175.7,175.7,175.9,175.9,175.9,175.8,175.8,175.8,175.9,175.9,176.1,176.2,176.2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,177.5,178.1,175.8,175.9,176.1,176.0,175.8,176.1,176.5,null,null,null,181.4,181.5,181.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,155.7,176.2,176.0,176.0,176.8,177.3,175.9,176.0,176.3,176.4,176.5,176.2,176.1,175.7,175.6,175.6,175.9,176.1,175.9,175.9,176.0,176.0,176.0,176.0,176.0,176.0,175.9,176.0,175.8,175.9,175.9,176.0,176.0,176.0,176.2,176.3,176.3,176.1,175.6,175.9,175.8,176.0,176.1,176.0,176.0,176.0,176.0,176.1,176.0,176.0,176.0,175.9,175.8,175.8,175.8,175.7,176.0,176.2,176.4,176.2,175.9,175.8,175.8,176.0,175.8,176.5,176.0,176.2,176.3,176.1,176.0,176.0,176.0,176.0,176.2,176.5,176.2,176.2,176.4,176.2,176.2,176.4,176.4,176.4,176.0,175.7,176.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,181.2],"rpm":[827.0,827.0,826.0,826.0,827.0,827.0,827.0,842.0,802.0,974.0,1016.0,989.0,1008.0,1021.0,1011.0,936.0,907.0,884.0,828.0,827.0,827.0,827.0,827.0,827.0,826.0,826.0,827.0,826.0,827.0,827.0,827.0,827.0,826.0,827.0,827.0,858.0,896.0,940.0,885.0,827.0,827.0,827.0,827.0,827.0,827.0,827.0,826.0,826.0,827.0,827.0,827.0,826.0,826.0,826.0,826.0,854.0,973.0,1002.0,1014.0,1030.0,1060.0,1065.0,1065.0,1060.0,920.0,835.0,826.0,826.0,826.0,826.0,826.0,827.0,827.0,827.0,827.0,827.0,826.0,826.0,826.0,870.0,909.0,961.0,1008.0,1036.0,1061.0,1065.0,1062.0,872.0,827.0,827.0,827.0,827.0,827.0,827.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,886.0,951.0,970.0,1026.0,1044.0,1059.0,1065.0,1049.0,906.0,827.0,827.0,827.0,827.0,828.0,827.0,827.0,826.0,826.0,827.0,826.0,826.0,826.0,831.0,891.0,1048.0,1046.0,null,1017.0,1053.0,1078.0,1086.0,1086.0,1085.0,964.0,827.0,826.0,826.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,844.0,930.0,989.0,1013.0,1013.0,1085.0,1086.0,1086.0,1085.0,1083.0,1010.0,827.0,821.0,821.0,821.0,821.0,821.0,821.0,821.0,820.0,821.0,821.0,822.0,836.0,858.0,888.0,926.0,980.0,1025.0,1044.0,1044.0,1044.0,1045.0,1044.0,1030.0,834.0,822.0,822.0,822.0,821.0,822.0,822.0,822.0,822.0,822.0,821.0,821.0,822.0,821.0,897.0,961.0,992.0,1086.0,1102.0,1106.0,1106.0,1106.0,1106.0,1030.0,856.0,847.0,847.0,847.0,847.0,846.0,847.0,846.0,846.0,846.0,846.0,846.0,846.0,836.0,832.0,868.0,868.0,1063.0,1072.0,null,null,null,869.0,1115.0,1149.0,1130.0,1040.0,965.0,870.0,847.0,847.0,847.0,847.0,847.0,847.0,847.0,846.0,869.0,906.0,913.0,961.0,962.0,976.0,1003.0,1003.0,919.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,1098.0,977.0,864.0,846.0,846.0,846.0,846.0,846.0,846.0,846.0,846.0,846.0,846.0,846.0,846.0,849.0,906.0,960.0,974.0,982.0,1001.0,1053.0,1023.0,1023.0,1016.0,1009.0,979.0,871.0,868.0,868.0,868.0,852.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,845.0,899.0,899.0,948.0,1003.0,1003.0,1003.0,1003.0,1003.0,952.0,879.0,878.0,878.0,878.0,878.0,858.0,837.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,836.0,846.0,1007.0,1053.0,1054.0,1045.0,911.0,878.0,877.0,878.0,877.0,871.0,828.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,831.0,914.0,1012.0,1013.0,1013.0,1013.0,1013.0,949.0,868.0,863.0,837.0,837.0,829.0,827.0,827.0,827.0,827.0,826.0,827.0,826.0,826.0,826.0,826.0,827.0,827.0,826.0,869.0,1008.0,1012.0,1013.0,1013.0,1013.0,1011.0,null,849.0,1009.0,null,null,891.0,833.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,862.0,894.0,910.0,899.0,899.0,899.0,899.0,855.0,827.0,827.0,827.0,827.0,828.0,829.0,827.0,827.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,839.0,866.0,873.0,899.0,899.0,965.0,1013.0,1013.0,1010.0,969.0,947.0,870.0,829.0,827.0,826.0,827.0,826.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,828.0,913.0,1024.0,1034.0,1019.0,994.0,969.0,997.0,916.0,832.0,827.0,827.0,826.0,826.0,827.0,827.0,827.0,827.0,826.0,826.0,826.0,826.0,826.0,827.0,865.0,907.0,910.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,820.0,820.0,820.0,820.0,821.0,820.0,822.0,872.0,935.0,null,null,null,865.0,830.0,828.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,758.0,826.0,826.0,826.0,826.0,826.0,837.0,880.0,933.0,1002.0,1002.0,973.0,917.0,836.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,833.0,857.0,858.0,857.0,874.0,878.0,877.0,869.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,828.0,827.0,828.0,828.0,828.0,828.0,843.0,859.0,909.0,899.0,835.0,827.0,827.0,827.0,827.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,826.0,849.0,896.0,901.0,981.0,965.0,960.0,978.0,981.0,981.0,892.0,826.0,826.0,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,827.0],"ml":[0.14,0.115,0.126,0.126,0.126,0.137,0.158,0.161,0.163,0.125,0.145,0.134,0.165,0.201,0.143,0.182,0.155,0.122,0.118,0.13,0.162,0.243,0.184,0.166,0.174,0.153,0.099,0.098,0.104,0.121,0.112,0.157,0.161,0.182,0.144,0.067,0.102,0.118,0.142,0.147,0.137,0.13,0.162,0.137,0.129,0.13,0.142,0.208,0.183,0.253,0.241,0.227,0.201,0.22,0.259,0.215,0.201,0.185,0.163,0.13,0.146,0.168,0.174,0.154,0.16,0.187,0.195,0.218,0.202,0.218,0.228,0.199,0.188,0.162,0.164,0.157,0.158,0.156,0.138,0.154,0.12,0.124,0.059,0.041,0.078,0.081,0.099,0.077,0.042,0.03,0.042,0.045,0.111,0.172,0.193,0.161,0.162,0.145,0.129,0.121,0.124,0.119,0.12,0.068,0.063,0.094,0.117,0.082,0.098,0.106,0.073,0.086,0.108,0.134,0.168,0.156,0.16,0.169,0.176,0.165,0.174,0.178,0.218,0.234,0.223,0.24,0.212,0.211,0.234,null,0.207,0.211,0.195,0.207,0.181,0.197,0.194,0.21,0.185,0.195,0.208,0.187,0.216,0.191,0.229,0.259,0.234,0.258,0.254,0.252,0.25,0.211,0.208,0.202,0.212,0.17,0.175,0.197,0.186,0.199,0.21,0.205,0.211,0.226,0.196,0.209,0.204,0.206,0.199,0.191,0.208,0.217,0.211,0.183,0.195,0.208,0.246,0.23,0.233,0.227,0.179,0.174,0.19,0.184,0.221,0.232,0.226,0.246,0.238,0.257,0.259,0.265,0.251,0.25,0.256,0.258,0.267,0.296,0.286,0.267,0.277,0.264,0.29,0.277,0.259,0.264,0.244,0.238,0.254,0.222,0.233,0.228,0.233,0.254,0.262,0.273,0.263,0.288,0.293,0.255,0.28,0.256,0.28,0.262,0.272,0.292,0.286,0.291,null,null,null,0.291,0.298,0.298,0.311,0.308,0.283,0.298,0.255,0.276,0.247,0.273,0.286,0.288,0.28,0.282,0.269,0.285,0.295,0.313,0.294,0.284,0.276,0.244,0.229,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.273,0.297,0.318,0.306,0.304,0.297,0.266,0.267,0.239,0.247,0.237,0.236,0.256,0.271,0.298,0.273,0.284,0.309,0.287,0.271,0.267,0.28,0.265,0.286,0.277,0.225,0.244,0.255,0.268,0.304,0.301,0.297,0.305,0.29,0.29,0.286,0.298,0.293,0.288,0.272,0.311,0.321,0.337,0.36,0.373,0.367,0.363,0.41,0.384,0.37,0.384,0.387,0.401,0.365,0.346,0.348,0.328,0.368,0.358,0.344,0.344,0.356,0.388,0.393,0.383,0.392,0.402,0.396,0.423,0.411,0.384,0.397,0.408,0.373,0.378,0.354,0.351,0.351,0.344,0.354,0.358,0.353,0.353,0.368,0.363,0.369,0.379,0.398,0.362,0.378,0.353,0.372,0.394,0.412,0.414,0.393,0.397,0.385,0.411,0.422,0.437,0.433,0.408,0.415,0.421,0.453,0.459,0.463,0.436,0.427,0.402,0.449,0.492,0.498,0.508,0.502,0.495,0.462,0.468,0.455,0.477,null,0.475,0.482,null,null,0.459,0.436,0.44,0.43,0.434,0.431,0.441,0.449,0.451,0.458,0.44,0.456,0.426,0.439,0.454,0.475,0.478,0.489,0.464,0.471,0.457,0.467,0.494,0.471,0.455,0.476,0.476,0.499,0.484,0.466,0.485,0.508,0.482,0.477,0.494,0.472,0.438,0.427,0.438,0.466,0.469,0.459,0.458,0.418,0.415,0.397,0.4,0.428,0.409,0.428,0.439,0.444,0.437,0.442,0.461,0.491,0.474,0.486,0.473,0.489,0.497,0.457,0.45,0.434,0.433,0.438,0.443,0.459,0.468,0.482,0.51,0.501,0.502,0.482,0.477,0.504,0.522,0.54,0.576,0.585,0.59,0.6,0.63,0.609,0.578,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.628,0.617,0.639,0.638,0.635,0.588,0.6,0.602,0.643,null,null,null,0.646,0.656,0.66,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.67,0.658,0.651,0.669,0.658,0.652,0.656,0.632,0.638,0.652,0.664,0.651,0.699,0.67,0.654,0.636,0.616,0.619,0.606,0.634,0.64,0.669,0.67,0.673,0.685,0.704,0.7,0.709,0.726,0.709,0.705,0.717,0.725,0.732,0.747,0.75,0.778,0.794,0.787,0.791,0.807,0.802,0.793,0.78,0.749,0.761,0.784,0.786,0.749,0.763,0.772,0.739,0.738,0.735,0.755,0.775,0.808,0.817,0.85,0.838,0.839,0.84,0.845,0.828,0.826,0.845,0.838,0.822,0.811,0.848,0.851,0.839,0.86,0.858,0.886,0.875,0.872,0.867,0.876,0.843,0.874,0.922,0.923,0.926,0.899,0.918,0.892,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,0.207],"ml_thr":0.5}};
+
+const HEX = ['#3987e5', '#d95926', '#199e70', '#c98500'];
+const ALARM_H = 6;
+const pad = (n) => String(n).padStart(2, '0');
+const fmt = (d) => `${pad(d.getDate())}/${pad(d.getMonth() + 1)} ${pad(d.getHours())}:00`;
+// numeros con coma decimal y punto de miles, como en los informes
+const num = (v, nd = 1) => { const [a, b] = Math.abs(v).toFixed(nd).split('.'); return `${v < 0 ? '−' : ''}${a.replace(/\B(?=(\d{3})+(?!\d))/g, '.')}${b ? ',' + b : ''}`; };
+const sgn = (v, nd = 1) => `${v >= 0 ? '+' : ''}${num(v, nd)}`;
+
+// ---------- fallas del selector ----------
+// Fallas criticas con firma aprobada (Excel de Juan). Serie real del export (la 4.1 de replay.py, las otras de
+// fallas_reales.py) y avisos de TGI; el score del modelo es inventado.
+// fam: familia del Excel en palabras de operación; nombre: la subfamilia en pocas palabras; simple: la subfamilia
+// contada para cualquiera. El titulo es "<unidad> <fam>: <nombre>", con simple y sub debajo.
+// story: el guion del presentador, en primera persona. Cada paso es [cuando, titulo, texto, caliente]; cuando es una
+// fecha, 'desvio' (la fecha de desvio), 'first' (el score pasa el umbral) o 'alarm' (alarma sostenida). El texto puede ser una funcion de (DATA, i).
+// raw[].ins: el instrumento del diagrama que muestra ese valor (pre: lo que va antes, si el valor no es el tag crudo). plant: bloque donde avisa (foco), su equipo
+// (causa) y lo que lee el modelo (lee), como [bloque, chip]. foco puede ser una lista.
+const FALLAS = [
+  {
+    id: '4.4',
+    desvio: '2024-06-18T16:00',  // inicio del precursor: desde acá la salud deja de ser buena
+    unit: 'UC-1',
+    menu: 'Ventilador del enfriador + mezcla del motor (falla doble) · UC-1 · jun 2024',
+    fam: 'Mecánica + Motor',
+    nombre: 'ventilador y mezcla aire-gas',
+    simple: 'Se gasta el rodamiento del ventilador del enfriador y el motor deja de regular la mezcla aire-gas de un lado.',
+    sub: 'Fallas 4.4 + 11.2 · parada el 22/06/2024 14:17 · dos avisos de TGI ese día',
+    rng: '24 may a 24 jun 2024',
+    data: () => DEMO['4.4'],
+    start: '2024-06-18T09:00',
+    plant: {foco: ['axh', 'ctrl'], causa: [['axh', 'fan'], ['ctrl', 'afr']], lee: [['motor', 'esc']]},
+    raw: [
+      {key: 'vib_lado_libre', name: 'Vibración del ventilador, lado libre', tag: 'CLRND.VIBR', ins: 'vi_fan', unit: 'in/s', nd: 2, dom: [0.4, 1.2]},
+      {key: 'vib_lado_acople', name: 'Vibración del ventilador, lado acople', tag: 'COOLERDRV.VIBR', ins: 'vi_fan', unit: 'in/s', nd: 3, dom: [0.03, 0.09]},
+      {key: 'esc_izq', name: 'Escapes del lado izquierdo del motor (media de 6 cilindros)', tag: 'LBCYL1..6.TEMP', ins: 'ti_esc', unit: '°F', nd: 0, dom: [1040, 1300]},
+      {key: 'esc_der', name: 'Escapes del lado derecho del motor (media de 6 cilindros)', tag: 'RBCYL1..6.TEMP', ins: 'ti_esc', unit: '°F', nd: 0, dom: [1040, 1300]},
+    ],
+    feats: [
+      {key: 'g1', name: 'Vibración del ventilador, lado libre · media 24 h', short: 'media 24 h vibración', op: 'roll', a: 'vib_lado_libre', h: 24,
+        calc: 'media(CLRND.VIBR, últimas 24 h de marcha)',
+        por: 'Un rodamiento gastado hace vibrar el eje cada vez más. La media de 24 h saca el ruido de cada hora y el ciclo del día.'},
+      {key: 'g2', name: 'Escapes izquierdo − derecho · media 24 h', short: 'delta izq − der', op: 'roll', a: 'esc_izq-esc_der', h: 24,
+        calc: 'media(LBCYL − RBCYL, últimas 24 h de marcha)',
+        por: 'El control de mezcla aire-gas (AFR2) ajusta cada lado del motor por separado. Si deja de controlar uno, ese lado quema distinto y las temperaturas de escape de los dos lados se separan.'},
+    ],
+    events: [
+      {at: '2024-06-20T12:36', label: 'Aviso TGI: fallan los sensores de temperatura y oxígeno de los dos lados del motor', short: '20/06'},
+      {at: '2024-06-22T14:17', label: 'Parada', short: '22/06', stop: true},
+      {at: '2024-06-22T15:52', label: 'Aviso TGI: alta vibración en el ventilador del enfriador', short: '22/06'},
+      {at: '2024-06-22T16:11', label: 'Aviso TGI: se pierde la comunicación con el control de mezcla aire-gas', short: '22/06'},
+    ],
+    story: [
+      ['2024-05-24T00:00', 'Operación normal', 'Vemos la UC-1 en marcha. La vibración del ventilador del enfriador y la temperatura de escape de los dos lados del motor están en su rango de siempre.'],
+      ['2024-06-18T09:00', 'Rearranque', 'La unidad vuelve a marchar después de 8 días parada. Todo en rango.'],
+      ['desvio', 'Empieza el desvío', 'Desde acá el agente empieza a ver el patrón de estas dos fallas en la vibración del ventilador y en los escapes. Cada señal sigue en su rango: ninguna alarma del panel salta. El score del agente empieza a subir.'],
+      ['2024-06-20T12:36', 'Aviso de TGI', 'TGI registra que fallan los sensores de temperatura y oxígeno de los dos lados del motor. Son los sensores que usa el control de mezcla aire-gas.'],
+      ['first', 'El agente alerta', 'El agente reconoce el patrón de la falla y avisa al equipo. Todavía no es alarma: el agente confirma 6 horas seguidas para no dar falsas alarmas.'],
+      ['alarm', 'Alarma del agente', (D, i) => `El score sigue arriba 6 horas y el agente da la alarma. Marca el ventilador del enfriador y el control de mezcla del motor. La vibración y los escapes siguen en su rango: el panel no ve nada. Faltan ${faltan(i)} para la parada.`, true],
+      ['2024-06-22T14:17', 'Parada', (D, i) => `La UC-1 para. Con el agente, el equipo de mantenimiento tenía ${faltan(DET.alarm)} de aviso.`, true],
+      ['2024-06-22T15:52', 'TGI confirma dos fallas', 'En la misma parada TGI registra alta vibración en el ventilador del enfriador y, 20 minutos después, que se pierde la comunicación con el control de mezcla aire-gas del motor (AFR2). Son las dos fallas que marcó el agente.'],
+    ],
+  },
+  {
+    id: '5.2',
+    desvio: '2023-10-12T16:09',  // inicio del precursor: desde acá la salud deja de ser buena
+    unit: 'UC-2',
+    menu: 'Aceite del motor que no se repone · UC-2 · nov 2023',
+    fam: 'Lubricación',
+    nombre: 'aceite del motor que no se repone',
+    simple: 'El sistema que repone el aceite del motor deja de reponer y el cárter pierde nivel.',
+    sub: 'Falla 5.2 · parada el 07/11/2023 18:12 · avisos de TGI el 08/11',
+    rng: '8 oct a 9 nov 2023',
+    data: () => DEMO['5.2'],
+    start: '2023-10-11T00:00',
+    plant: {foco: 'motor', causa: [['motor', 'aceite']], lee: [['ctrl', 'esm']]},
+    raw: [
+      {key: 'pres_aceite', name: 'Presión de aceite del motor', tag: 'ENGOIL.PRES', ins: 'pi_engoil', unit: 'psi', nd: 1, dom: [38, 60]},
+      {key: 'temp_aceite', name: 'Temperatura del aceite del motor', tag: 'ENGOIL.TEMP', ins: 'ti_engoil', unit: '°F', nd: 1, dom: [165, 185]},
+      {key: 'rpm', name: 'Velocidad del motor', tag: 'ESM.SPEED', ins: 'si_speed', unit: 'rpm', nd: 0, dom: [800, 1150]},
+    ],
+    feats: [
+      {key: 'g1', name: 'Presión de aceite por rpm · media 24 h', short: 'media 24 h presión/rpm', op: 'roll', a: 'pres_aceite/rpm', h: 24,
+        calc: 'media(ENGOIL.PRES / ESM.SPEED, últimas 24 h de marcha)',
+        por: 'La bomba de aceite gira con el motor: más rpm, más presión. Dividir por las rpm saca la operación. Si el cárter pierde nivel, la bomba toma menos aceite y la presión por rpm baja.'},
+      {key: 'g2', name: 'Temperatura − presión del aceite del motor', short: 'delta T − P', op: 'delta', a: 'temp_aceite', b: 'pres_aceite/rpm', h: 24,
+        calc: 'z(ENGOIL.TEMP) − z(ENGOIL.PRES / ESM.SPEED), medias de 24 h',
+        por: 'Si baja la presión y la temperatura no se mueve, falta aceite. Si fuera el enfriamiento, subiría la temperatura.'},
+    ],
+    events: [
+      {at: '2023-11-07T18:12', label: 'Parada', short: '07/11', stop: true},
+      {at: '2023-11-08T12:59', label: 'Aviso TGI: emulsión en el aceite, tanque elevado', short: '08/11'},
+      {at: '2023-11-08T13:32', label: 'Aviso TGI: daño en la manguera del repositor de aceite', short: '08/11'},
+    ],
+    story: [
+      ['2023-10-08T00:00', 'Operación normal', 'Vemos la UC-2 en marcha. La presión del aceite del motor sube y baja con la velocidad y la temperatura está estable. Todo en su rango de siempre.'],
+      ['desvio', 'Empieza el desvío', 'Desde acá el agente empieza a ver el patrón de esta falla en la presión del aceite del motor. La presión sigue en su rango: ninguna alarma del panel salta. El score del agente empieza a subir.'],
+      ['first', 'El agente alerta', 'El agente reconoce el patrón de la falla y avisa al equipo. Todavía no es alarma: el agente confirma 6 horas seguidas para no dar falsas alarmas.'],
+      ['alarm', 'Alarma del agente', (D, i) => `El score sigue arriba 6 horas y el agente da la alarma. Marca el aceite del motor. Presión y temperatura siguen en su rango: el panel no ve nada. Faltan ${faltan(i)} para la parada.`, true],
+      ['2023-11-04T02:00', 'Rearranque', 'La unidad vuelve a marchar después de casi una semana con paradas. La alarma del agente sigue activa: el problema no se resolvió.'],
+      ['2023-11-07T18:12', 'Parada', (D, i) => `La UC-2 para. Con el agente, el equipo de mantenimiento tenía ${faltan(DET.alarm)} de aviso.`, true],
+      ['2023-11-08T12:59', 'TGI confirma la falla', 'TGI encuentra emulsión en el aceite, el tanque elevado y la manguera del repositor dañada. El repositor no reponía el aceite del cárter: es lo que marcó el agente.'],
+    ],
+  },
+  {
+    id: '4.1',
+    desvio: '2025-07-29T07:39',  // inicio del precursor: desde acá la salud deja de ser buena
+    unit: 'UC-1',
+    menu: 'Buje cruceta-biela gastado · UC-1 · ago 2025',
+    fam: 'Mecánica',
+    nombre: 'buje cruceta-biela gastado',
+    simple: 'Se gasta el buje de la articulación que une la biela con la cruceta del compresor.',
+    sub: 'Falla 4.1 · disparo el 09/08/2025 11:33 · reparación el 15/08',
+    rng: '8 jul a 15 ago 2025',
+    data: () => ({...REAL, r1: REAL.pres, r2: REAL.taceite, ml: DEMO['4.1'].ml}),
+    start: '2025-07-28T00:00',
+    plant: {foco: 'bast', causa: [['bast', 'cruz']], lee: [['bast', 'oil']]},
+    raw: [
+      {key: 'r1', name: 'Presión de aceite del bastidor', tag: 'OIL.PRES', ins: 'pi_oil', unit: 'psi', nd: 1, dom: [50, 62]},
+      {key: 'r2', name: 'Temperatura del aceite del bastidor', tag: 'OIL.TEMP', ins: 'ti_oil', unit: '°F', nd: 0, dom: [130, 175]},
+    ],
+    feats: [
+      {key: 'g1', name: 'Presión de aceite del bastidor · media 24 h', short: 'media 24 h presión', op: 'roll', a: 'r1', h: 24,
+        calc: 'media(OIL.PRES, últimas 24 h de marcha)',
+        por: 'Un buje gastado deja más holgura: se escapa aceite y la presión baja de a poco. La media saca el ruido de cada hora.'},
+      {key: 'g2', name: 'Temperatura − presión del aceite del bastidor', short: 'delta T − P', op: 'delta', a: 'r2', b: 'r1', h: 24,
+        calc: 'z(OIL.TEMP) − z(OIL.PRES), medias de 24 h',
+        por: 'Con desgaste, la fricción calienta el aceite y la holgura baja la presión: la diferencia crece aunque cada una siga en su rango.'},
+    ],
+    events: [
+      {at: '2025-07-29T11:52', label: 'Parada por falla de lubricación', short: '29/07'},
+      {at: '2025-08-04T08:50', label: 'Aviso TGI: falla lubricación compresor', short: '04/08'},
+      {at: '2025-08-06T18:00', label: 'Rearranque', short: '06/08'},
+      {at: '2025-08-09T11:33', label: 'Disparo', short: '09/08', stop: true},
+      {at: '2025-08-15T07:58', label: 'TGI cambia bujes cruceta-biela y válvulas divisoras', short: '15/08'},
+    ],
+    story: [
+      ['2025-07-08T00:00', 'Operación normal', 'Vemos la UC-1 en marcha. La presión y la temperatura del aceite del bastidor (el cárter del compresor) están en lo esperado para la carga.'],
+      ['2025-07-28T00:00', 'Rearranque', 'La unidad vuelve a marchar después de dos semanas parada.'],
+      ['desvio', 'Empieza el desvío', 'Desde acá el agente empieza a ver el patrón de esta falla en el aceite del bastidor. Presión y temperatura siguen en su rango: ninguna alarma del panel salta. El score del agente empieza a subir.'],
+      ['2025-07-29T11:52', 'Parada', 'La máquina para. TGI la registra después como falla del sistema de lubricación.'],
+      ['2025-08-04T08:50', 'Aviso de TGI', 'TGI registra la falla de lubricación del compresor (bomba de prelubricación). Corresponde a la parada del 29/07.'],
+      ['2025-08-06T18:00', 'Rearranque', 'La unidad vuelve a marchar. Presión y temperatura del aceite dentro de su rango (55,5 psi, 164 °F). En el panel no se ve nada raro.'],
+      ['first', 'El agente alerta', 'El agente reconoce el patrón de la falla y avisa al equipo. Todavía no es alarma: el agente confirma 6 horas seguidas para no dar falsas alarmas.'],
+      ['alarm', 'Alarma del agente', (D, i) => `Para esa carga, el aceite está unos 2 °F más caliente de lo esperado y la presión apenas más baja. Las dos siguen en su rango: una alarma fija no lo ve. Juntas, el agente lo lee como desgaste. Faltan ${faltan(i)} para el disparo.`, true],
+      ['2025-08-09T11:33', 'Disparo', (D, i) => `La UC-1 dispara y queda parada 6 días, hasta la reparación. Con el agente, el equipo de mantenimiento tenía ${faltan(DET.alarm)} de aviso.`, true],
+      ['2025-08-15T07:58', 'TGI confirma la falla', 'TGI cambia los bujes cruceta-biela (síntoma: ruido) y registra falla de asentamiento de la cruceta #3. Ese día también cambia las válvulas divisoras de aceite.'],
+    ],
+  },
+];
+// tiempo desde la hora i hasta la parada, en horas o en dias
+const durac = (h) => (h < 48 ? `${h} horas` : `${num(h / 24, 1)} días`);
+const faltan = (i) => durac(STOP_I - i);
+
+// ---------- estado de la falla elegida ----------
+let F, DATA, T0, N, EVENTS, STORY, DET, STOP_I, DESVIO_I, POS, STOPS, charts = [];
+const tAt = (i) => new Date(T0.getTime() + i * 3600e3);
+const idxOf = (s) => Math.round((new Date(s).getTime() - T0.getTime()) / 3600e3);
+const at = (s, i) => { for (let k = i; k >= Math.max(0, i - 2); k--) if (s[k] != null) return s[k]; return null; };
+
+// alarmas: mismo criterio que el analisis (horas evaluadas seguidas sobre el umbral; una hora sin dato corta la racha)
+function detect(series, thr) {
+  let first = null, alarm = null, run = 0;
+  const state = series.map((v, i) => {
+    const over = v != null && v > thr;
+    run = over ? run + 1 : 0;
+    if (over && first == null) first = i;
+    if (run >= ALARM_H && alarm == null) alarm = i;
+    return run >= ALARM_H ? 2 : over ? 1 : 0;
+  });
+  return {first, alarm, state};
+}
+
+// ---------- diagrama del paquete ----------
+// Mismo esquema que el tren de planta de KM, con las partes del paquete: el gas de izquierda a derecha arriba,
+// el motor, el bastidor y el panel abajo; el agua del motor va al enfriador. Cada bloque lleva sus partes (chips) y los
+// instrumentos del export, en burbujas estilo P&ID.
+const NS = 'http://www.w3.org/2000/svg';
+const el = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const PLANT = (() => {
+  const Y = 66, H = 150, Y2 = 268, H2 = 140, CH = 19, CS = 24;
+  // solo las partes con instrumentos en el export (donde se puede emitir una alarma). El ESM y el AFR2 van en el
+  // panel, aparte del motor.
+  const U = {
+    cil: {x: 380, y: Y, w: 280, t: 'Compresor Ariel JGT/4', s: '4 cilindros · doble efecto', cols: 2,
+      chips: [['c1', 'Cilindro 1'], ['c2', 'Cilindro 2'], ['c3', 'Cilindro 3'], ['c4', 'Cilindro 4'], ['valv', 'Válvulas'], ['desc', 'Descargadores']]},
+    axh: {x: 800, y: Y, w: 280, t: 'Enfriador AXH', s: 'aire · un ventilador', chips: [['gas', 'Gas · aftercooler'], ['ejw', 'Agua de camisas'], ['taw', 'Agua auxiliar'], ['fan', 'Ventilador']]},
+    motor: {x: 20, y: Y2, w: 300, h: H2, t: 'Motor Waukesha L5794GSI', s: 'V12 a gas · 1.200 rpm',
+      chips: [['aceite', 'Aceite y cárter'], ['banc', 'Bancadas'], ['esc', 'Escapes']]},
+    bast: {x: 380, y: Y2, w: 280, h: H2, t: 'Bastidor Ariel', s: 'cigüeñal · crucetas', chips: [['oil', 'Aceite del bastidor'], ['cruz', 'Crucetas y bujes'], ['chum', 'Cigüeñal y chumaceras']]},
+    ctrl: {x: 800, y: Y2, w: 280, h: H2, t: 'Panel', s: 'control del motor', chips: [['esm', 'ESM · velocidad'], ['afr', 'Mezcla aire-gas (AFR2)']]},
+  };
+  // instrumentos del export: arriba con la etiqueta al costado, abajo con la etiqueta debajo (los del motor
+  // escalonados en dos filas para que las etiquetas no se pisen)
+  const S = {
+    pi_suc: {x: 60, y: 26, l: 'PI', tag: 'SUCTION.PRES', to: Y + H / 2},
+    ti_cyl: {x: 410, y: 26, u: 'cil', l: 'TI', tag: 'CYL1..4.TEMP'},
+    ti_gas: {x: 830, y: 26, u: 'axh', l: 'TI', tag: 'TI.103.PV'},
+    vi_fan: {x: 960, y: 26, u: 'axh', l: 'VI', tag: 'CLRND · COOLERDRV'},
+    pi_des: {x: 1120, y: 26, l: 'PI', tag: 'DISCHARGE.PRES', to: Y + H / 2},
+    pi_engoil: {x: 60, y: 452, u: 'motor', l: 'PI', tag: 'ENGOIL.PRES'},
+    ti_engoil: {x: 130, y: 494, u: 'motor', l: 'TI', tag: 'ENGOIL.TEMP'},
+    ti_engb: {x: 200, y: 452, u: 'motor', l: 'TI', tag: 'ENGB1..7'},
+    ti_esc: {x: 270, y: 494, u: 'motor', l: 'TI', tag: 'L/RBCYL'},
+    si_speed: {x: 940, y: 452, u: 'ctrl', l: 'SI', tag: 'ESM.SPEED'},
+    pi_oil: {x: 430, y: 452, u: 'bast', l: 'PI', tag: 'OIL.PRES'},
+    ti_oil: {x: 520, y: 452, u: 'bast', l: 'TI', tag: 'OIL.TEMP'},
+    vi_drive: {x: 610, y: 452, u: 'bast', l: 'VI', tag: 'DRIVE.VIBR'},
+  };
+  const svg = document.getElementById('plant');
+  let refs = {};
+  const arrow = (d, cls) => el('path', {d, class: cls, 'marker-end': 'url(#pl-ah)'}, svg);
+  const text = (x, y, s, attrs = {}) => { const t = el('text', {x, y, ...attrs}, svg); t.textContent = s; return t; };
+
+  function build(cfg) {
+    svg.innerHTML = '';
+    const m = el('marker', {id: 'pl-ah', viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse'}, el('defs', {}, svg));
+    el('path', {d: 'M0 0 L10 5 L0 10z', class: 'ah'}, m);
+    // gas de izquierda a derecha
+    const ym = Y + H / 2;
+    text(4, ym - 10, 'SUCCIÓN', {class: 'lb'});
+    arrow(`M0 ${ym} H${U.cil.x - 3}`, 'flow');
+    arrow(`M${U.cil.x + U.cil.w} ${ym} H${U.axh.x - 3}`, 'flow');
+    arrow(`M${U.axh.x + U.axh.w} ${ym} H1256`, 'flow');
+    text(1256, ym - 10, 'AL GASODUCTO', {class: 'lb', 'text-anchor': 'end'});
+    // mecanica: el motor mueve el cigueñal por el acople; el cigueñal mueve los pistones
+    const mx = U.cil.x + U.cil.w / 2, ya = Y2 + H2 / 2;
+    el('path', {d: `M${U.motor.x + U.motor.w} ${ya} H${U.bast.x}`, class: 'mech'}, svg);
+    text((U.motor.x + U.motor.w + U.bast.x) / 2, ya - 10, 'ACOPLE', {class: 'lb', 'text-anchor': 'middle'});
+    el('path', {d: `M${mx} ${Y + H} V${Y2}`, class: 'mech'}, svg);
+    text(mx + 8, (Y + H + Y2) / 2 + 4, 'CIGÜEÑAL', {class: 'lb'});
+    // agua: el motor manda sus dos circuitos al enfriador, por detras del panel
+    const xa = U.ctrl.x + U.ctrl.w + 30;
+    arrow(`M${U.motor.x + U.motor.w - 20} ${Y2 + H2} V${Y2 + H2 + 18} H${xa} V${Y + H + 26} H${U.axh.x + U.axh.w - 40} V${Y + H + 3}`, 'flow agua');
+    text(xa - 6, Y2 + H2 + 34, 'AGUA DEL MOTOR', {class: 'lb', 'text-anchor': 'end'});
+
+    // bloques y partes
+    const has = (list, u, c) => list.some(([a, b]) => a === u && b === c);
+    refs = {blocks: {}, ins: {}};
+    for (const [k, u] of Object.entries(U)) {
+      const h = u.h || H, g = el('g', {class: 'blk'}, svg);
+      refs.blocks[k] = g;
+      el('rect', {class: 'ring', x: u.x - 5, y: u.y - 5, width: u.w + 10, height: h + 10, rx: 8}, g);
+      el('rect', {class: 'b', x: u.x, y: u.y, width: u.w, height: h, rx: 5}, g);
+      el('text', {class: 't', x: u.x + 10, y: u.y + 20}, g).textContent = u.t;
+      el('text', {class: 's', x: u.x + 10, y: u.y + 35}, g).textContent = u.s;
+      const cols = u.cols || 1, cw = (u.w - 20 - (cols - 1) * 6) / cols;
+      u.chips.forEach(([id, lab], j) => {
+        const cx = u.x + 10 + (j % cols) * (cw + 6), cy = u.y + 46 + Math.floor(j / cols) * CS;
+        const cl = ['chip', has(cfg.causa, k, id) ? 'causa' : '', has(cfg.lee, k, id) ? 'lee' : ''].join(' ');
+        const cg = el('g', {class: cl}, g);
+        el('rect', {x: cx, y: cy, width: cw, height: CH, rx: 3}, cg);
+        el('text', {x: cx + 7, y: cy + 13.5}, cg).textContent = lab;
+      });
+    }
+    // instrumentos: se encienden los que muestra la falla
+    const on = new Set(F.raw.map((r) => r.ins));
+    // la UC-2 tiene sus propios tags de planta
+    const tagOf = (s) => (F.unit === 'UC-2' ? s.tag.replace('TI.103', 'TI.102') : s.tag);
+    for (const [k, s] of Object.entries(S)) {
+      const lit = on.has(k), top = s.y < Y;
+      if (s.u) { const u = U[s.u]; el('line', {class: `ld ${lit ? 'on' : ''}`, x1: s.x, y1: top ? s.y + 11 : s.y - 11, x2: s.x, y2: top ? u.y : u.y + (u.h || H)}, svg); }
+      if (s.to) el('line', {class: `ld ${lit ? 'on' : ''}`, x1: s.x, y1: s.y + 11, x2: s.x, y2: s.to}, svg);
+      const g = el('g', {class: `ins ${lit ? 'on' : ''}`}, svg);
+      el('circle', {cx: s.x, cy: s.y, r: 11}, g);
+      el('text', {x: s.x, y: s.y + 3.5, 'text-anchor': 'middle'}, g).textContent = s.l;
+      if (top) {
+        el('text', {class: 'tg', x: s.x + 16, y: s.y + 4}, g).textContent = tagOf(s);
+        refs.ins[k] = el('text', {class: 'vl', x: s.x + 16, y: s.y + 19}, g);
+      } else {
+        el('text', {class: 'tg', x: s.x, y: s.y + 25, 'text-anchor': 'middle'}, g).textContent = s.tag;
+        refs.ins[k] = el('text', {class: 'vl', x: s.x, y: s.y + 40, 'text-anchor': 'middle'}, g);
+      }
+    }
+  }
+  // estado: ok, dev (desvio debajo del umbral), watch (sobre el umbral), warn (alarma sostenida), event (parada)
+  function update(estado, running, values) {
+    svg.classList.toggle('run', running);
+    const foco = [].concat(F.plant.foco);  // uno o varios bloques (dos fallas en la misma parada)
+    for (const [k, g] of Object.entries(refs.blocks)) g.setAttribute('class', `blk ${foco.includes(k) ? estado : ''}`);
+    for (const [k, t] of Object.entries(refs.ins)) t.textContent = values[k] ?? '';
+  }
+  return {build, update};
+})();
+
+// ---------- graficos ----------
+// Un grafico puede tener varias pistas (F arriba, score abajo) con el mismo eje de tiempo.
+const M = {l: 46, r: 14, t: 30, b: 22};
+function makeChart(host, opts) {
+  const box = document.createElement('div'); box.className = 'chart'; box.id = `ch-${charts.length}`;
+  box.innerHTML = `<div class="ttl">${opts.ttl}</div>`;
+  host.appendChild(box);
+  const svg = el('svg', {height: opts.h}, box);
+  const tip = document.createElement('div'); tip.className = 'tip'; box.appendChild(tip);
+  const c = {host: box, svg, tip, ...opts};
+  charts.push(c);
+  return c;
+}
+
+function pathOf(s, X, Y) {
+  let d = '', pen = false;
+  s.forEach((v, i) => { if (v == null) { pen = false; return; } d += `${pen ? 'L' : 'M'}${X(i).toFixed(1)} ${Y(v).toFixed(1)}`; pen = true; });
+  return d;
+}
+function draw(c) {
+  const W = c.host.clientWidth; c.svg.setAttribute('width', W); c.svg.innerHTML = '';
+  const iw = W - M.l - M.r, top = M.t, bot = c.h - M.b;
+  const X = (i) => M.l + (POS[Math.max(0, Math.min(N - 1, i))] / POS[N - 1]) * iw;
+  // pistas: reparten la altura, con un hueco para el nombre de cada pista que no es la primera
+  const GAP = 26, avail = bot - top - GAP * (c.tracks.length - 1);
+  let yy = top;
+  for (const tr of c.tracks) {
+    tr.top = yy; tr.ih = avail * tr.frac; yy += tr.ih + GAP;
+    const [y0, y1] = tr.dom;
+    tr.Y = (v) => tr.top + tr.ih - ((Math.min(Math.max(v, y0), y1) - y0) / (y1 - y0)) * tr.ih;
+  }
+  Object.assign(c, {X, iw, W});
+  // tramos parados (comprimidos), con su duracion si entra
+  for (const [a, b] of STOPS) {
+    const x = X(a), w = Math.max(2, X(Math.min(b, N - 1)) - x);
+    el('rect', {x, y: top, width: w, height: bot - top, fill: 'var(--stop)'}, c.svg);
+    const days = (b - a) / 24;
+    if (c.labels && w > 30 && days >= 1) el('text', {x: x + w / 2, y: bot - 8, 'text-anchor': 'middle', class: 'lab'}, c.svg).textContent = `parada ${days.toFixed(0)} d`;
+  }
+  // grilla y ejes
+  const ax = el('g', {class: 'axis'}, c.svg);
+  const STEPS = [0.01, 0.02, 0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 50, 100];
+  for (const tr of c.tracks) {
+    const [y0, y1] = tr.dom, rg = y1 - y0;
+    // paso del eje: el de siempre, y mas grande si las etiquetas no entran en la altura
+    let step = tr.step || (rg > 60 ? 20 : rg > 40 ? 10 : rg > 10 ? 5 : rg > 2 ? 1 : rg > 0.5 ? 0.25 : 0.01);
+    while (rg / step > tr.ih / 13 && step < 100) step = STEPS[STEPS.indexOf(step) + 1];
+    for (let v = Math.ceil(y0 / step) * step; v <= y1 + 1e-9; v += step) {
+      el('line', {x1: M.l, x2: M.l + iw, y1: tr.Y(v), y2: tr.Y(v), stroke: 'var(--grid)', 'stroke-width': 1}, ax);
+      el('text', {x: M.l - 8, y: tr.Y(v) + 4, 'text-anchor': 'end'}, ax).textContent = num(v, step < 1 ? 2 : 0);
+    }
+    if (tr.label) el('text', {x: M.l, y: tr.top - 9, class: 'trk'}, c.svg).textContent = tr.label;
+  }
+  let lastX = -1e9;
+  for (let i = 0; i < N; i++) {
+    const d = tAt(i);
+    if (d.getHours() === 0 && DATA.run[i] && X(i) - lastX > 44) {
+      el('text', {x: X(i), y: c.h - 4, 'text-anchor': 'middle'}, ax).textContent = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}`;
+      lastX = X(i);
+    }
+  }
+  // eventos
+  const ev = el('g', {class: 'ev'}, c.svg);
+  const rowX = [-1e9, -1e9];
+  EVENTS.forEach((e) => {
+    el('line', {x1: X(e.i), x2: X(e.i), y1: top, y2: bot, stroke: e.stop ? 'var(--critical)' : '#55627E', 'stroke-width': e.stop ? 1.5 : 1, 'stroke-dasharray': e.stop ? '' : '3 3'}, ev);
+    // etiqueta en la fila libre; si no entra en ninguna, se omite (el boton de salto la nombra igual)
+    const row = [0, 1].find((r) => X(e.i) - rowX[r] > 34);
+    if (c.labels && row != null) {
+      el('text', {x: X(e.i), y: top - 6 - row * 13, 'text-anchor': 'middle'}, ev).textContent = e.short;
+      rowX[row] = X(e.i);
+    }
+  });
+  // umbral, series (la parte reproducida a color pleno, el resto tenue)
+  c.clip = el('clipPath', {id: `clip-${c.host.id}`}, el('defs', {}, c.svg));
+  c.clipRect = el('rect', {x: 0, y: 0, width: 0, height: c.h}, c.clip);
+  for (const tr of c.tracks) {
+    if (tr.thr != null) {
+      el('line', {x1: M.l, x2: M.l + iw, y1: tr.Y(tr.thr), y2: tr.Y(tr.thr), stroke: 'var(--warning)', 'stroke-width': 1.5, 'stroke-dasharray': '6 4'}, c.svg);
+      el('text', {x: M.l + iw - 4, y: tr.Y(tr.thr) - 5, class: 'lab', 'text-anchor': 'end'}, c.svg).textContent = `umbral ${String(tr.thr).replace('.', ',')}`;
+    }
+    for (const sr of tr.series) {
+      const d = pathOf(sr.s, X, tr.Y);
+      el('path', {d, fill: 'none', stroke: sr.color, 'stroke-width': 2, opacity: 0.18, 'stroke-linejoin': 'round'}, c.svg);
+      el('path', {d, fill: 'none', stroke: sr.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'clip-path': `url(#clip-${c.host.id})`}, c.svg);
+    }
+  }
+  // marca de alarma
+  c.alarmMark = null;
+  if (c.det && c.det.alarm != null) {
+    const g = el('g', {}, c.svg); c.alarmMark = g; g.style.display = 'none';
+    const x = X(c.det.alarm);
+    el('line', {x1: x, x2: x, y1: top, y2: bot, stroke: 'var(--critical)', 'stroke-width': 2}, g);
+    el('text', {x: x - 6, y: top + 12, 'text-anchor': 'end', fill: '#EEF2F8', 'font-size': 12, 'font-weight': 600}, g).textContent = `⚠ ALARMA ${fmt(tAt(c.det.alarm))}`;
+  }
+  c.head = el('line', {y1: top - 4, y2: bot, stroke: '#EEF2F8', 'stroke-width': 1.5}, c.svg);
+  c.hover = el('line', {y1: top, y2: bot, stroke: '#8D9AB2', 'stroke-width': 1, opacity: 0}, c.svg);
+  el('rect', {x: M.l, y: top, width: iw, height: bot - top, fill: 'transparent'}, c.svg);
+}
+
+// tooltip compartido (crosshair en todos los graficos)
+function showTip(c, i, px) {
+  const d = tAt(i);
+  const rows = c.tracks.flatMap((tr) => tr.series).map((sr) => `<div class="r"><span><span class="sw" style="background:${sr.color}"></span>${sr.name}</span><span>${sr.s[i] == null ? '—' : num(sr.s[i], sr.nd ?? (sr.unit ? 1 : 2)) + (sr.unit ? ' ' + sr.unit : '')}</span></div>`).join('');
+  const st = DATA.run[i] ? `carga ${DATA.carga[i] == null ? '—' : DATA.carga[i].toFixed(0)} %` : 'máquina parada';
+  c.tip.innerHTML = `<div class="h">${fmt(d)} · ${st}</div>${rows}`;
+  c.tip.style.display = 'block';
+  const left = Math.min(px + 14, c.W - c.tip.offsetWidth - 4);
+  c.tip.style.left = `${Math.max(0, left)}px`; c.tip.style.top = `${M.t + 30}px`;
+}
+function idxAtX(c, px) {
+  let lo = 0, hi = N - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (c.X(mid) < px) lo = mid + 1; else hi = mid; }
+  return lo > 0 && px - c.X(lo - 1) < c.X(lo) - px ? lo - 1 : lo;
+}
+function hideTips() { charts.forEach((c) => { c.tip.style.display = 'none'; c.hover.setAttribute('opacity', 0); }); }
+function bindChart(c) {
+  c.svg.addEventListener('pointermove', (e) => {
+    const r = c.svg.getBoundingClientRect(); const px = e.clientX - r.left;
+    if (px < M.l || px > M.l + c.iw) return hideTips();
+    const i = idxAtX(c, px);
+    charts.forEach((o) => { o.hover.setAttribute('x1', o.X(i)); o.hover.setAttribute('x2', o.X(i)); o.hover.setAttribute('opacity', 0.8); });
+    charts.forEach((o) => { if (o !== c) o.tip.style.display = 'none'; });
+    showTip(c, i, px);
+  });
+  c.svg.addEventListener('pointerleave', hideTips);
+  c.svg.addEventListener('click', (e) => {
+    const r = c.svg.getBoundingClientRect();
+    pause(); setT(idxAtX(c, e.clientX - r.left));
+  });
+}
+
+// ---------- features de ingenieria ----------
+// Medias moviles sobre las horas de marcha (sin las primeras 6 h de cada arranque) y deltas entre dos variables.
+// Cada una en desvios (σ) de su valor normal: la marcha del primer 40 % de la ventana antes de la parada.
+const WARM_H = 6, REF_FRAC = 0.4;
+function computeFeatures() {
+  let c = 0;
+  const ok = DATA.run.map((r) => (c = r ? c + 1 : 0) > WARM_H);
+  const pre = ok.flatMap((v, i) => (v && i < STOP_I ? [i] : []));
+  const ref = pre.slice(0, Math.floor(pre.length * REF_FRAC));
+  // 'a/b' y 'a-b': cociente o diferencia hora a hora antes de promediar (presion por rpm, banco contra banco)
+  const ser = (k) => {
+    const [a, op, b] = k.split(/([/-])/);
+    if (!op) return DATA[a];
+    return DATA[a].map((v, i) => { const w = DATA[b][i]; return v == null || w == null || (op === '/' && !w) ? null : op === '/' ? v / w : v - w; });
+  };
+  const roll = (s, h) => { let buf = []; return s.map((v, i) => { if (ok[i] && v != null) { buf.push(v); if (buf.length > h) buf.shift(); } return ok[i] && v != null ? buf.reduce((x, y) => x + y, 0) / buf.length : null; }); };
+  const z = (s) => {
+    const v = ref.map((i) => s[i]).filter((x) => x != null), m = v.reduce((x, y) => x + y, 0) / v.length;
+    const sd = Math.sqrt(v.reduce((x, y) => x + (y - m) ** 2, 0) / v.length) || 1;
+    return s.map((x) => (x == null ? null : (x - m) / sd));
+  };
+  F.feats.forEach((fe) => {
+    const za = z(roll(ser(fe.a), fe.h));
+    if (fe.op === 'roll') { DATA[fe.key] = za; return; }
+    const zb = z(roll(ser(fe.b), fe.h));
+    DATA[fe.key] = za.map((x, i) => (x == null || zb[i] == null ? null : x - zb[i]));
+  });
+  // eje: lo que ocupan los features, con aire, siempre con el 0
+  const all = F.feats.flatMap((fe) => DATA[fe.key]).filter((x) => x != null);
+  return [Math.floor(Math.min(0, ...all) - 0.5), Math.ceil(Math.max(0, ...all) + 0.5)];
+}
+function renderFeatures() {
+  document.getElementById('firmas').innerHTML = F.feats.map((fe, k) => `<div class="firma">
+      <div class="fh"><i style="background:${HEX[k]}"></i><b>${fe.name}</b><span class="now" id="now-${fe.key}">—</span></div>
+      <div class="fx"><code>${fe.calc}</code></div>
+      <p>${fe.por}</p>
+    </div>`).join('');
+}
+
+// ---------- estado en el tiempo ----------
+let t = 0;
+const scrub = document.getElementById('scrub');
+const fmtZ = (v) => v == null ? '—' : `${v >= 0 ? '+' : '−'}${Math.abs(v).toFixed(1).replace('.', ',')} σ`;
+const storyEl = document.getElementById('story');
+const guionEl = document.getElementById('guion');
+const stateEl = document.getElementById('state');
+function estadoAt(i) {
+  const run = !!DATA.run[i], st = DET.state[i], alarm = DET.alarm != null && i >= DET.alarm && i < STOP_I;
+  const stopped = i >= STOP_I && !(run && i > STOP_I + 24);
+  const desvio = i >= DESVIO_I && i < STOP_I;
+  return stopped ? 'event' : alarm || st === 2 ? 'warn' : st === 1 ? 'watch' : run ? (desvio ? 'dev' : 'ok') : 'off';
+}
+const SALUD = {ok: 'Salud buena', dev: 'En observación · desvío leve', watch: 'En observación · alerta del agente', warn: 'En riesgo · alarma', event: 'Parada por falla', off: 'Máquina parada'};
+const salud = (i) => { const e = estadoAt(i); return `<span class="salud ${e}"><i></i>${SALUD[e]}</span>`; };
+function render() {
+  const i = t;
+  scrub.value = i;
+  const run = !!DATA.run[i];
+  document.getElementById('clock').textContent = `${fmt(tAt(i))} · ${tAt(i).getFullYear()}`;
+  charts.forEach((c) => {
+    const x = c.X(i);
+    c.head.setAttribute('x1', x); c.head.setAttribute('x2', x);
+    c.clipRect.setAttribute('width', x);
+    if (c.alarmMark) c.alarmMark.style.display = i >= c.det.alarm ? '' : 'none';
+  });
+  // estado: la alarma queda hasta la parada; despues de la parada, evento hasta que vuelve a marchar
+  const estado = estadoAt(i) === 'off' ? 'ok' : estadoAt(i);
+  const ml = at(DATA.ml, i);
+  stateEl.className = `state ${estado === 'event' ? 'alarm' : estado === 'warn' ? 'alarm' : estado === 'watch' || estado === 'dev' ? 'over' : run ? '' : 'off'}`;
+  document.getElementById('state-t').textContent = estado === 'event' ? 'Parada por falla' : estado === 'warn' ? `Alarma desde ${fmt(tAt(DET.alarm ?? i))}` : estado === 'watch' ? 'Alerta del agente' : estado === 'dev' ? 'Desvío leve' : run ? 'Normal' : 'Máquina parada';
+  document.getElementById('state-s').textContent = `score ${ml == null ? '—' : ml.toFixed(2).replace('.', ',')}`;
+  const vals = {};
+  // dos variables en el mismo instrumento (los dos lados del ventilador, los dos bancos) van juntas
+  if (run) F.raw.forEach((r) => { const v = at(DATA[r.key], i); if (v != null) vals[r.ins] = [vals[r.ins], `${r.pre ?? ''}${num(v, r.nd)} ${r.unit}`].filter(Boolean).join(' · '); });
+  PLANT.update(estado, run, vals);
+  const ch = [...STORY].reverse().find((s) => s.i <= i) || STORY[0];
+  storyEl.innerHTML = `<small>${fmt(tAt(ch.i))} · ${salud(i)}</small><b>${ch.h}.</b> ${ch.txt}`;
+  guionEl.querySelectorAll('li').forEach((li, k) => { li.className = STORY[k] === ch ? 'cur' : STORY[k].i > i ? 'fut' : ''; });
+  storyEl.classList.toggle('hot', !!ch.hot && i <= STOP_I);
+  F.feats.forEach((fe) => { document.getElementById(`now-${fe.key}`).textContent = run ? fmtZ(at(DATA[fe.key], i)) : '—'; });
+}
+function setT(i) { t = Math.max(0, Math.min(N - 1, i)); render(); }
+scrub.addEventListener('input', () => { pause(); setT(+scrub.value); });
+
+// reproduccion: con la maquina en marcha va hora por hora; las horas paradas pasan rapido
+const SPEEDS = [1, 2, 4];
+let speedK = 0, timer = null;
+const playBtn = document.getElementById('play');
+function tick() {
+  if (t >= N - 1) return pause();
+  setT(t + 1);
+  // frena 1,5 s en cada evento para poder contarlo
+  const hitEvent = STORY.some((s) => s.i === t) || EVENTS.some((e) => e.i === t);
+  const base = DATA.run[t] ? 140 : 18;
+  timer = setTimeout(tick, (hitEvent ? 1500 : base) / SPEEDS[speedK]);
+}
+function play() { if (t >= N - 1) setT(0); playBtn.textContent = '❚❚ Pausa'; playBtn.classList.add('on'); clearTimeout(timer); tick(); }
+function pause() { clearTimeout(timer); timer = null; playBtn.textContent = '▶ Reproducir'; playBtn.classList.remove('on'); }
+playBtn.addEventListener('click', () => (timer ? pause() : play()));
+document.getElementById('speed').addEventListener('click', (e) => { speedK = (speedK + 1) % SPEEDS.length; e.target.textContent = `×${SPEEDS[speedK]}`; });
+document.addEventListener('keydown', (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.key === ' ' || e.key === 'PageDown') { e.preventDefault(); timer ? pause() : play(); }
+  if (e.key === 'ArrowRight') setT(t + 1);
+  if (e.key === 'ArrowLeft') setT(t - 1);
+});
+
+// ---------- cambiar de falla ----------
+function load(id, hashT) {
+  pause();
+  F = FALLAS.find((f) => f.id === id) || FALLAS[0];
+  DATA = {...F.data()};  // copia: los features se escriben en DATA y no deben tocar la serie original
+  T0 = new Date(DATA.t0.replace(' ', 'T'));
+  N = DATA.n;
+  EVENTS = F.events.map((e) => ({...e, i: idxOf(e.at)}));
+  STOP_I = EVENTS.find((e) => e.stop).i;
+  DESVIO_I = idxOf(F.desvio);
+  // el score sólo existe donde hay features (no en las primeras horas de cada arranque)
+  const fDom = computeFeatures();
+  DATA.ml = DATA.ml.map((v, i) => (F.feats.some((fe) => DATA[fe.key][i] != null) ? v : null));
+  DET = detect(DATA.ml, DATA.ml_thr);
+  STORY = F.story
+    .filter(([when]) => (when !== 'alarm' || DET.alarm != null) && (when !== 'first' || DET.first != null))
+    .map(([when, h, txt, hot]) => {
+      const i = when === 'alarm' ? DET.alarm : when === 'first' ? DET.first : when === 'desvio' ? DESVIO_I : idxOf(when);
+      return {i, h, txt: typeof txt === 'function' ? txt(DATA, i) : txt, hot};
+    });
+  // eje comprimido: una hora en marcha ocupa 1, una hora parada 0,04
+  POS = [0];
+  for (let i = 1; i < N; i++) POS.push(POS[i - 1] + (DATA.run[i - 1] ? 1 : 0.04));
+  STOPS = [];
+  for (let i = 0, s0 = null; i <= N; i++) {
+    const stopped = i < N && !DATA.run[i];
+    if (stopped && s0 == null) s0 = i;
+    if (!stopped && s0 != null) { STOPS.push([s0, i]); s0 = null; }
+  }
+  // paradas y arranques de la maquina antes de la falla (si no hay ya un paso a esa hora)
+  const libre = (i) => !STORY.some((s) => Math.abs(s.i - i) <= 3);
+  STOPS.filter(([a, b]) => b - a >= 4 && a < STOP_I && a > 0).forEach(([a, b]) => {
+    if (libre(a)) STORY.push({i: a, h: 'La máquina para', txt: `La unidad queda parada ${durac(b - a)}. Sin marcha no hay datos y el agente espera a que vuelva a arrancar.`});
+    if (b < STOP_I && libre(b)) STORY.push({i: b, h: 'Rearranque', txt: 'La unidad vuelve a marchar y el agente retoma la lectura.'});
+  });
+  STORY.sort((a, b) => a.i - b.i);
+
+  document.getElementById('title').innerHTML = `${F.unit} ${F.fam}: ${F.nombre}<small>${F.simple}</small><small>${F.sub}</small>`;
+  document.getElementById('rng').textContent = F.rng;
+  document.title = `Villavicencio ${F.unit} · ${F.id}`;
+  document.getElementById('unit').textContent = `${F.unit} · Ariel JGT/4 + Waukesha L5794GSI`;
+  PLANT.build(F.plant);
+
+  // SCADA a la izquierda; F y score en un solo grafico a la derecha, con la misma altura total
+  const rawEl = document.getElementById('raw'), modelEl = document.getElementById('model');
+  rawEl.innerHTML = ''; modelEl.innerHTML = ''; charts = [];
+  const rh = F.raw.length > 2 ? 130 : 160;
+  F.raw.forEach((r, k) => makeChart(rawEl, {
+    ttl: `${r.name} <code>${r.tag} · ${r.unit}</code>`, h: rh, labels: k === 0,
+    tracks: [{frac: 1, dom: r.dom, series: [{s: DATA[r.key], color: HEX[k], name: r.name, unit: r.unit, nd: r.nd}]}],
+  }));
+  const lgd = F.feats.map((fe, k) => `<span><i class="ln" style="background:${HEX[k]}"></i>${fe.short}</span>`).join('');
+  makeChart(modelEl, {
+    ttl: `Features <code>σ</code><span class="legend lgd">${lgd}</span>`, h: F.raw.length * (rh + 28) - 28, labels: true, det: DET,
+    tracks: [
+      {frac: 0.6, dom: fDom, series: F.feats.map((fe, k) => ({s: DATA[fe.key], color: HEX[k], name: fe.short, unit: 'σ'}))},
+      {frac: 0.4, dom: [0, 1], step: 0.5, thr: DATA.ml_thr, label: 'Score del agente', series: [{s: DATA.ml, color: '#C9D3E6', name: 'Score', unit: ''}]},
+    ],
+  });
+  charts.forEach(bindChart);
+
+  renderFeatures();
+
+  // en un rearranque la hora del evento todavia es parada: la salud es la de la hora siguiente
+  const sI = (i) => (!DATA.run[i] && DATA.run[i + 1] ? i + 1 : i);
+  guionEl.innerHTML = STORY.map((s) => `<li><button type="button"><small>${fmt(tAt(s.i))} ${salud(sI(s.i))}</small><span>${s.h}</span></button></li>`).join('');
+  guionEl.querySelectorAll('button').forEach((b, k) => b.addEventListener('click', () => { pause(); setT(STORY[k].i); }));
+
+  // eventos: marcas sobre la linea de tiempo; un clic salta a ese momento
+  const marks = document.getElementById('marks'); marks.innerHTML = '';
+  [
+    ...EVENTS.map((e) => ({i: e.i, label: `${e.short} · ${e.label}`, cl: e.stop ? 'stop' : ''})),
+    ...(DET.alarm != null ? [{i: DET.alarm, label: `${fmt(tAt(DET.alarm)).slice(0, 5)} · Alarma del agente`, cl: 'al'}] : []),
+  ].sort((a, b) => a.i - b.i).forEach((j) => {
+    const b = document.createElement('button'); b.className = j.cl; b.title = j.label; b.setAttribute('aria-label', j.label);
+    b.style.left = `${(100 * j.i) / (N - 1)}%`; b.addEventListener('click', () => { pause(); setT(j.i); }); marks.appendChild(b);
+  });
+
+  scrub.max = N - 1;
+  charts.forEach(draw);
+  setT(idxOf(hashT || F.start));
+}
+
+const sel = document.getElementById('falla');
+sel.innerHTML = FALLAS.map((f) => `<option value="${f.id}">${f.menu}</option>`).join('');
+sel.addEventListener('change', () => { history.replaceState(null, '', `#f=${sel.value}`); load(sel.value); });
+
+function redraw() { charts.forEach(draw); render(); }
+window.addEventListener('resize', () => { clearTimeout(redraw.t); redraw.t = setTimeout(redraw, 120); });
+// #f=4.4&t=2024-06-20T12:00 abre esa falla en ese momento (capturas y presentacion)
+const hash = new URLSearchParams(location.hash.slice(1));
